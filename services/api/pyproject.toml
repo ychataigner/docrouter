@@ -1,0 +1,28 @@
+[project]
+name = "docrouter-api"
+version = "0.1.0"
+description = "API FastAPI de classification de documents"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "docrouter-core",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "python-multipart>=0.0.12",
+    "pydantic-settings>=2.6",
+    "pillow>=11.0",
+    "pypdfium2>=4.30",
+]
+
+[project.optional-dependencies]
+# Tri par IA (DiT). Sans cet extra, l'API tourne avec le classifieur simulé (`dummy`).
+ml = [
+    "transformers>=4.46",
+    "torch>=2.5",
+]
+
+[tool.uv.sources]
+docrouter-core = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14"]
+build-backend = "uv_build"

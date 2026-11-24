@@ -1,0 +1,23 @@
+[project]
+name = "docrouter-ui"
+version = "0.1.0"
+description = "Interface Streamlit de dépôt et de rangement des documents"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "docrouter-core",
+    "streamlit>=1.40",
+    "httpx>=0.28",
+    "pydantic-settings>=2.6",
+    "pillow>=11.0",
+    "pypdfium2>=4.30",
+]
+
+[project.scripts]
+docrouter-ui = "docrouter_ui.__main__:main"
+
+[tool.uv.sources]
+docrouter-core = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14"]
+build-backend = "uv_build"

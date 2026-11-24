@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.1"
+      - name: Installer les dépendances (sans IA)
+        run: uv sync --frozen
+      - name: Lint
+        run: uv run ruff check .
+      - name: Tests rapides
+        run: uv run pytest
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image API
+        run: docker build -f services/api/Dockerfile -t docrouter-api .
+      - name: Build image front
+        run: docker build -f services/ui/Dockerfile -t docrouter-ui .

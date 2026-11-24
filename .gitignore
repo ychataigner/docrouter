@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# IDE
+.idea/
+.vscode/
+
+# Secrets (jamais versionnés : voir .env.example)
+.env
+
+# Données et sorties (documents, même fictifs, hors du dépôt)
+output/
+data/
+
+# Modèles et MLOps (publiés sur le Hub Hugging Face / suivis dans MLflow)
+models/
+*.onnx
+*.safetensors
+*.bin
+mlruns/
+mlartifacts/
+mlflow.db
+reports/

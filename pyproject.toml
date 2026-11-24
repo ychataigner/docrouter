@@ -1,0 +1,56 @@
+[project]
+name = "docrouter"
+version = "0.1.0"
+description = "DocRouter — API de routage de documents administratifs (vision par ordinateur)"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "docrouter-core",
+    "docrouter-api",
+    "docrouter-ui",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.8",
+]
+# Tri par IA (DiT + PyTorch) : `uv sync --group ml`
+ml = [
+    "docrouter-api[ml]",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["packages/*", "services/*"]
+
+[tool.uv.sources]
+docrouter-core = { workspace = true }
+docrouter-api = { workspace = true }
+docrouter-ui = { workspace = true }
+torch = { index = "pytorch-cpu" }
+
+# PyTorch CPU uniquement : évite de télécharger CUDA (plusieurs Go) dans l'image Docker.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Par défaut, seuls les tests rapides tournent. Les autres : `uv run pytest -m ml` (etc.)
+addopts = "-m 'not ml and not slow and not integration'"
+markers = [
+    "ml: nécessite PyTorch / le modèle (uv sync --group ml)",
+    "slow: évaluation de la qualité du modèle, longue",
+    "integration: nécessite les conteneurs lancés (docker compose up)",
+]

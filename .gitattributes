@@ -1,0 +1,7 @@
+# Fins de ligne Linux dans le dépôt (les fichiers tournent dans des conteneurs Linux)
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.pdf binary

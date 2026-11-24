@@ -1,0 +1,49 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+      args:
+        # false = image légère, tri simulé (dev du front) ; true = embarque DiT + PyTorch
+        WITH_ML: ${WITH_ML:-false}
+    image: docrouter-api:latest
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DOCROUTER_CLASSIFIER: ${DOCROUTER_CLASSIFIER:-dummy}
+      TZ: Europe/Paris
+    ports:
+      - "8000:8000"
+    volumes:
+      # Cache des modèles Hugging Face : téléchargés une seule fois.
+      - hf-cache:/models
+    restart: unless-stopped
+
+  ui:
+    build:
+      context: .
+      dockerfile: services/ui/Dockerfile
+    image: docrouter-ui:latest
+    environment:
+      DOCROUTER_API_URL: http://api:8000
+      TZ: Europe/Paris
+    ports:
+      - "8501:8501"
+    volumes:
+      # Les documents rangés arrivent dans ./output sur la machine hôte.
+      - ./output:/data/output
+    depends_on:
+      - api
+    restart: unless-stopped
+    develop:
+      # `docker compose watch` : le code du front est recopié à chaud, sans rebuild.
+      watch:
+        - action: sync
+          path: ./services/ui/src/docrouter_ui
+          target: /app/.venv/lib/python3.11/site-packages/docrouter_ui
+        - action: rebuild
+          path: ./services/ui/pyproject.toml
+
+volumes:
+  hf-cache:
