@@ -36,8 +36,8 @@ ainsi que des cas incertains (→ `a_verifier`).
 ## Activer le tri par IA (DiT)
 
 ```bash
-WITH_ML=true DOCROUTER_CLASSIFIER=dit docker compose up --build -d   # Docker (~2 Go)
-uv sync --group ml                                                   # local
+docker compose -f docker-compose.yml -f docker-compose.ml.yml up --build -d   # Docker (image docrouter-api:ml)
+uv sync --group ml                                                            # local
 ```
 
 Au premier démarrage, l'API télécharge le modèle (~350 Mo) dans le volume `hf-cache`.

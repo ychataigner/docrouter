@@ -66,16 +66,16 @@ L'ordre suit les itérations. Chaque phase se termine par un **tag Git** et une 
 `docs/iterations.md`.
 
 ### Phase 0 — Socle
-- [ ] `git init`, premier commit, `.gitignore` vérifié (`data/`, `models/`, `output/`, `.env`, `mlruns/`)
-- [ ] Tags rétroactifs `it1`, `it3-front` sur l'existant
-- [ ] CI GitHub Actions : `ruff` + `pytest` (tests rapides) + build de l'image API
-- [ ] Marqueurs pytest : `unit` (défaut), `ml`, `slow`, `integration`
-- [ ] `docs/iterations.md` : une section par itération (mission, essais, erreurs, résultat, mesures)
+- [x] `git init`, premier commit, `.gitignore` vérifié (`data/`, `models/`, `output/`, `.env`, `mlruns/`)
+- [x] Tag `it1-it3` sur l'existant
+- [x] CI GitHub Actions : `ruff` + `pytest` (tests rapides) + build des images API et front
+- [x] Marqueurs pytest : `ml`, `slow`, `integration` (exclus par défaut)
+- [x] `docs/iterations.md` : une section par itération (mission, essais, erreurs, résultat, mesures)
 
 ### Phase 1 — It. 2 + 3 « pour de vrai » : DiT réel dans Docker
-- [ ] Construire l'image avec IA, vérifier une vraie prédiction via Swagger, mesurer taille et démarrage
-- [ ] Constat documenté : sans fine-tuning, DiT ne sait reconnaître que les factures → justifie la phase 2
-- [ ] Tag `it2`
+- [x] Construire l'image avec IA, obtenir une vraie prédiction, mesurer (1,87 Go, ≈ 130 ms, ≈ 750 Mo de RAM)
+- [x] Constat documenté : sans adaptation, DiT ne reconnaît que les factures (BL → `form`, ticket → `budget`)
+- [x] Tag `it2`
 
 ### Phase 2 — Données, évaluation, fine-tuning (pas exigé par le sujet, mais nécessaire pour les 4 classes)
 - [ ] `training/data/generate.py` : Faker `fr_FR` → HTML → PDF → image, **plusieurs gabarits par classe**,
@@ -85,8 +85,14 @@ L'ordre suit les itérations. Chaque phase se termine par un **tag Git** et une 
 - [ ] MLflow dans `docker-compose.yml` (backend SQLite + artefacts en volume)
 - [ ] `training/evaluate.py --model <backend>` → MLflow : accuracy, F1-macro, matrice de confusion,
       courbe couverture/précision (pour fixer le seuil `a_verifier`), latence p50/p95, taille
-- [ ] Baselines : TF-IDF, DiT zero-shot, (CLIP)
-- [ ] `training/finetune.py` : DiT tête 4 classes, entraîné sur GPU Colab/Kaggle, suivi MLflow
+- [ ] **Comparer plusieurs modèles, pas seulement DiT**, avec le même jeu de test et les mêmes
+      métriques dans MLflow : DiT zero-shot (actuel), CLIP/SigLIP zero-shot, OCR + TF-IDF (baseline),
+      et au moins une autre architecture de vision adaptée (ViT ou EfficientNet)
+- [ ] Adaptation, en deux temps : ① **sonde linéaire** (backbone gelé, seule la tête à 4 classes est
+      entraînée, sur CPU en quelques minutes) ; ② **fine-tuning complet** (GPU Colab/Kaggle)
+      seulement si ① ne suffit pas. `training/finetune.py`, suivi MLflow
+- [ ] Le modèle retenu est choisi sur les mesures (précision, latence, taille) et le choix est justifié dans le journal
+- [ ] Partie 2 : même démarche de comparaison pour l'OCR (Tesseract vs docTR) et l'extraction (règles vs Donut vs VLM)
 - [ ] Modèle fine-tuné poussé sur le **Hub HF** (privé), et l'API le télécharge avec `HF_TOKEN`
 - [ ] Critères : accuracy ≥ 90 %, F1-macro ≥ 0,88 → c'est le **modèle lourd de référence** de l'it. 8
 

@@ -5,6 +5,13 @@ les mesures. Chaque itération terminée porte un tag Git (`git tag`).
 
 ---
 
+## Étape 0 — Socle ✅
+
+- Dépôt Git privé sur GitHub, tag `it1-it3` sur l'état initial.
+- CI GitHub Actions ([.github/workflows/ci.yml](../.github/workflows/ci.yml)) : `ruff`, `pytest`
+  et build des deux images à chaque push. Premier run vert en 1 min 13 s.
+- Tests classés en catégories : `ml`, `slow`, `integration` (exclues par défaut).
+
 ## Itération 1 — Le Squelette ✅ (tag `it1-it3`)
 
 - **Mission** : API web qui reçoit une image en POST, avec Swagger.
@@ -13,14 +20,30 @@ les mesures. Chaque itération terminée porte un tag Git (`git tag`).
 - **Choix** : l'API est **sans état** et ne garde aucun fichier (préparation de l'itération 6).
   C'est le client (Streamlit) qui range les documents.
 
-## Itération 2 — Le Cerveau ⏳
+## Itération 2 — Le Cerveau ✅ (modèle pré-entraîné, fine-tuning à venir)
 
 - **Mission** : brancher un modèle Hugging Face et renvoyer une vraie prédiction.
-- **État** : DiT (`microsoft/dit-base-finetuned-rvlcdip`) est branché mais optionnel. Le tri
-  « simulé » (`DOCROUTER_CLASSIFIER=dummy`) sert à développer le front sans PyTorch.
-- **Constat** : DiT pré-entraîné ne connaît que 16 classes RVL-CDIP. Seule `invoice` correspond à
-  nos classes, donc les notes de frais et les bons de livraison ne peuvent pas être reconnus.
-  Un fine-tuning est nécessaire.
+- **Réalisé** : DiT (`microsoft/dit-base-finetuned-rvlcdip`) tourne dans Docker
+  (`docker compose -f docker-compose.yml -f docker-compose.ml.yml up -d`). Le tri « simulé »
+  (`DOCROUTER_CLASSIFIER=dummy`) reste disponible pour développer le front sans PyTorch.
+- **Mesures** (CPU, 4 documents fictifs de `data/samples/`) :
+
+  | Document | Prédiction | Confiance | Label brut DiT | Inférence |
+  |---|---|---|---|---|
+  | Facture | facture ✅ | 80 % | `invoice` | 132 ms |
+  | Bon de livraison | autre ❌ | 98 % | `form` | 161 ms |
+  | Ticket de restaurant | autre ❌ | 77 % | `budget` | 127 ms |
+  | Courrier de mairie | autre ✅ | 99 % | `letter` | 132 ms |
+
+  Image `docrouter-api:ml` : **1,87 Go** (contre 288 Mo sans IA). RAM du conteneur : **≈ 750 Mo**.
+- **Constat** : DiT ne connaît que les 16 classes RVL-CDIP. Seule `invoice` correspond à l'une de
+  nos classes : un BL ou un ticket ne peut **jamais** être reconnu, et il est classé « autre » avec
+  une forte confiance, donc sans passer par « à vérifier ». Un fine-tuning sur nos 4 classes est
+  indispensable.
+- **Incident** : le disque C: s'est rempli pendant le build (Docker occupait 60 Go). Résultat : une
+  image corrompue (fichiers Python vides) et une distribution WSL `docker-desktop` bloquée.
+  Corrections : nettoyage (30 Go de cache de build), mise à jour de WSL, disque Docker déplacé sur
+  D:, puis rebuild.
 
 ## Itération 3 — L'Isolement ✅ (tag `it1-it3`)
 

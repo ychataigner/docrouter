@@ -1,0 +1,11 @@
+# Surcouche « IA réelle » : API avec DiT + PyTorch au lieu du tri simulé.
+#   docker compose -f docker-compose.yml -f docker-compose.ml.yml up --build -d
+# L'image porte un tag distinct (docrouter-api:ml) : l'image légère reste disponible.
+services:
+  api:
+    build:
+      args:
+        WITH_ML: "true"
+    image: docrouter-api:ml
+    environment:
+      DOCROUTER_CLASSIFIER: dit
