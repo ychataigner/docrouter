@@ -14,6 +14,7 @@ COPY pyproject.toml uv.lock ./
 COPY packages/core/pyproject.toml packages/core/
 COPY services/api/pyproject.toml services/api/
 COPY services/ui/pyproject.toml services/ui/
+COPY training/pyproject.toml training/
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --package docrouter-api --no-install-workspace \
     $([ "$WITH_ML" = "true" ] && echo "--extra ml")

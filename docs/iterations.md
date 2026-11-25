@@ -45,6 +45,26 @@ les mesures. Chaque itération terminée porte un tag Git (`git tag`).
   Corrections : nettoyage (30 Go de cache de build), mise à jour de WSL, disque Docker déplacé sur
   D:, puis rebuild.
 
+## Données — générateur de documents français ✅
+
+- **Pourquoi** : aucun dataset public ne contient des factures, BL et tickets **français**. Sans
+  données étiquetées, on ne peut ni adapter le modèle ni mesurer s'il fonctionne.
+- **Réalisé** : paquet `training/`, commande `uv run docrouter-generate`.
+  - Contenu fictif cohérent : SIRET valides (clé de Luhn), TVA intracommunautaire calculée,
+    HT + TVA = TTC au centime près, taux 20 / 10 / 5,5 %.
+  - 4 classes × **4 mises en page** structurellement différentes, et un style (police, couleur,
+    tableau) tiré au hasard pour chaque document.
+  - Effets **propre / scan** (rotation, papier jauni, bruit, basse résolution) / **photo**
+    (perspective, fond, ombre, éclairage inégal). Les tickets sont surtout photographiés.
+  - **Gabarit 3 réservé au test** : on mesure si le modèle reconnaît le *type* de document, et
+    pas une mise en page déjà vue.
+- **Résultat** : 1 320 documents (240 train + 60 val + 30 test par classe) en 2 min sur 11 cœurs,
+  254 Mo. `manifest.csv` contient la vérité terrain (utile pour la partie 2) ; `dataset_info.json`
+  contient la graine et l'empreinte SHA-256, qui seront enregistrées dans MLflow.
+- **Limites** : les documents sont dessinés et restent plus réguliers que des vrais. À compléter
+  par des photos de vrais tickets. Les gabarits de test de la facture et du BL partagent une colonne
+  latérale : c'est un test difficile et voulu, puisque seul le contenu les distingue.
+
 ## Itération 3 — L'Isolement ✅ (tag `it1-it3`)
 
 - **Mission** : Dockerfile optimisé.

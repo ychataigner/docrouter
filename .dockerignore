@@ -11,5 +11,7 @@ output
 data
 tests
 training
+# uv a besoin du pyproject de chaque membre du workspace (le code d'entraînement, lui, reste exclu)
+!training/pyproject.toml
 *.md
 !README.md

@@ -42,6 +42,18 @@ uv sync --group ml                                                            # 
 
 Au premier démarrage, l'API télécharge le modèle (~350 Mo) dans le volume `hf-cache`.
 
+## Générer les documents de test (fictifs)
+
+```bash
+uv run docrouter-generate                 # 1 320 documents dans data/synth (≈ 2 min)
+uv run docrouter-generate --train 20 --val 5 --test 5 --out data/synth_mini
+```
+
+Factures, bons de livraison, tickets de caisse et « autres » documents français, entièrement
+fictifs (Faker `fr_FR`) : 4 mises en page par classe, effets scan / photo, et vérité terrain
+(fournisseur, date, n°, HT, TVA, TTC) dans `data/synth/manifest.csv`. Le gabarit n° 3 est réservé
+au jeu de test (`data/synth/test/`), qu'on peut déposer directement dans le front.
+
 ## Développement local (uv)
 
 ```bash
@@ -58,6 +70,7 @@ uv run ruff check . && uv run ruff format .     # lint / format
 packages/core/   code partagé (types de documents, schémas)
 services/api/    API FastAPI + Dockerfile (extra `ml` = DiT + PyTorch)
 services/ui/     front Streamlit + Dockerfile
+training/        génération de données, entraînement, évaluation (hors images Docker)
 tests/           tests pytest
 ```
 

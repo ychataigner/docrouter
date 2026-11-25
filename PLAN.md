@@ -78,10 +78,12 @@ L'ordre suit les itérations. Chaque phase se termine par un **tag Git** et une 
 - [x] Tag `it2`
 
 ### Phase 2 — Données, évaluation, fine-tuning (pas exigé par le sujet, mais nécessaire pour les 4 classes)
-- [ ] `training/data/generate.py` : Faker `fr_FR` → HTML → PDF → image, **plusieurs gabarits par classe**,
-      **vérité terrain JSON** (réutilisée en partie 2), augmentations « scan/photo »
-- [ ] Classe `autre` : sous-ensemble RVL-CDIP + Cerfa publics
-- [ ] Jeu de test français figé (`data/test_fr/`, ~120 docs, gabarits jamais vus à l'entraînement)
+- [x] Générateur `docrouter-generate` (`training/`) : Faker `fr_FR` → dessin PIL, **4 gabarits par
+      classe** (0-2 entraînement, 3 test), styles aléatoires, effets « propre / scan / photo »,
+      **vérité terrain** dans `manifest.csv` (réutilisée en partie 2). 1 320 docs en 2 min, 254 Mo
+- [ ] Classe `autre` : compléter avec un sous-ensemble RVL-CDIP / Cerfa publics (si la précision le demande)
+- [x] Jeu de test figé : `data/synth/test/` (120 docs, gabarit 3 jamais vu à l'entraînement, 25 % en PDF)
+- [ ] Compléter le test avec des **photos de vrais tickets** (numéros de carte masqués) → `data/test_reel/`
 - [ ] MLflow dans `docker-compose.yml` (backend SQLite + artefacts en volume)
 - [ ] `training/evaluate.py --model <backend>` → MLflow : accuracy, F1-macro, matrice de confusion,
       courbe couverture/précision (pour fixer le seuil `a_verifier`), latence p50/p95, taille

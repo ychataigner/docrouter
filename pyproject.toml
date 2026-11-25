@@ -8,6 +8,7 @@ dependencies = [
     "docrouter-core",
     "docrouter-api",
     "docrouter-ui",
+    "docrouter-training",
 ]
 
 [dependency-groups]
@@ -24,12 +25,13 @@ ml = [
 package = false
 
 [tool.uv.workspace]
-members = ["packages/*", "services/*"]
+members = ["packages/*", "services/*", "training"]
 
 [tool.uv.sources]
 docrouter-core = { workspace = true }
 docrouter-api = { workspace = true }
 docrouter-ui = { workspace = true }
+docrouter-training = { workspace = true }
 torch = { index = "pytorch-cpu" }
 
 # PyTorch CPU uniquement : évite de télécharger CUDA (plusieurs Go) dans l'image Docker.
