@@ -20,6 +20,10 @@ dev = [
 ml = [
     "docrouter-api[ml]",
 ]
+# Évaluation / comparaison / entraînement des modèles + MLflow : `uv sync --group train`
+train = [
+    "docrouter-training[train]",
+]
 
 [tool.uv]
 package = false

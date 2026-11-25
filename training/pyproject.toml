@@ -5,13 +5,28 @@ description = "Données, entraînement et évaluation des modèles DocRouter (ho
 requires-python = ">=3.11,<3.13"
 dependencies = [
     "docrouter-core",
+    "docrouter-api",
     "faker>=30",
     "numpy>=1.26",
     "pillow>=10.4",
 ]
 
+[project.optional-dependencies]
+# Évaluation et entraînement des modèles (hors CI et hors images Docker) : `uv sync --group train`
+train = [
+    "docrouter-api[ml]",
+    "mlflow-skinny>=3.1",
+    "matplotlib>=3.9",
+    "scikit-learn>=1.5",
+]
+
 [project.scripts]
 docrouter-generate = "docrouter_training.data.generate:main"
+docrouter-evaluate = "docrouter_training.evaluate:main"
+
+[tool.uv.sources]
+docrouter-core = { workspace = true }
+docrouter-api = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.13.1,<0.14"]

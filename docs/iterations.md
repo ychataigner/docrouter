@@ -65,6 +65,46 @@ les mesures. Chaque itération terminée porte un tag Git (`git tag`).
   par des photos de vrais tickets. Les gabarits de test de la facture et du BL partagent une colonne
   latérale : c'est un test difficile et voulu, puisque seul le contenu les distingue.
 
+## Données — banc d'évaluation et comparaison des modèles ✅
+
+- **Pourquoi** : choisir le modèle sur des mesures, avec les mêmes documents et les mêmes métriques
+  pour tous, et garder une trace de chaque essai.
+- **Réalisé** : `uv run docrouter-evaluate` (groupe `train`) et serveur **MLflow** dans
+  `docker-compose.yml` (SQLite + artefacts dans le volume `mlflow-data`). Chaque run enregistre
+  l'empreinte du jeu de données et le commit Git. Métriques : accuracy, F1-macro, F1 par classe,
+  précision par effet et par format, courbe couverture/précision du seuil « à vérifier »,
+  latence p50/p95, taille. Artefacts : matrice de confusion, courbe du seuil, prédictions, tête
+  entraînée.
+- **Sonde linéaire** : le réseau reste gelé et sert à résumer chaque image en un vecteur ; seule une
+  régression logistique à 4 classes est entraînée (sur `train`, régularisation choisie sur `val`).
+  Extraction ≈ 3 min par modèle sur CPU, entraînement de la tête < 1 s.
+- **Résultats** (120 documents de test, **gabarit jamais vu**, CPU 12 cœurs) :
+
+| Modèle | Accuracy | F1-macro | F1 fact. | F1 NdF | F1 BL | F1 autre | Photo | p50 (ms) | Taille (Mo) |
+|---|---|---|---|---|---|---|---|---|---|
+| dit-zeroshot (API actuelle) | 35,0 % | 0,227 | 0,37 | 0,00 | 0,00 | 0,54 | 21 % | 185 | 343 |
+| clip-zeroshot | 59,2 % | 0,540 | 0,59 | 0,97 | 0,00 | 0,60 | 69 % | 106 | 605 |
+| probe-dit | 78,3 % | 0,768 | 0,53 | 0,83 | 0,72 | 0,98 | 79 % | 171 | 343 |
+| probe-vit | 72,5 % | 0,704 | 0,31 | 0,97 | 0,61 | 0,93 | 86 % | 174 | 346 |
+| **probe-clip** | **97,5 %** | **0,975** | 0,95 | 1,00 | 0,95 | 1,00 | 97 % | **89** | 351 |
+
+- **Constats** :
+  - Sans adaptation, aucun modèle n'est utilisable (DiT 35 %, CLIP 59 %, BL jamais reconnu).
+  - En validation (gabarits déjà vus), les trois sondes dépassent 99 % : le vrai juge est bien le
+    gabarit inédit du test, où DiT et ViT chutent (78 %, 72 %) — ils ont appris les mises en page.
+    CLIP généralise (97,5 %) : il a été entraîné sur des images avec du texte, son vecteur capte
+    davantage le *contenu*.
+  - Les 3 erreurs de probe-clip sont des factures prises pour des BL : exactement la difficulté
+    voulue du gabarit de test (colonne latérale commune).
+  - probe-clip est aussi le plus rapide (89 ms) ; il ne garde que la partie « image » de CLIP.
+  - Seuil : avec probe-clip, 97,5 % des documents passent le seuil actuel (0,6) avec 98,3 % de
+    bons rangements.
+- **Prudence** : 30 documents par classe (une erreur = 0,8 point), documents synthétiques. Le seuil
+  recommandé par le banc est calculé sur le test lui-même, donc optimiste. À confirmer sur
+  de vrais documents (`data/test_reel/`).
+- **Décision** : **probe-clip** devient le candidat pour l'API ; le fine-tuning complet n'est pas
+  nécessaire à ce stade.
+
 ## Itération 3 — L'Isolement ✅ (tag `it1-it3`)
 
 - **Mission** : Dockerfile optimisé.

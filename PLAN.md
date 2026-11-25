@@ -84,18 +84,21 @@ L'ordre suit les itérations. Chaque phase se termine par un **tag Git** et une 
 - [ ] Classe `autre` : compléter avec un sous-ensemble RVL-CDIP / Cerfa publics (si la précision le demande)
 - [x] Jeu de test figé : `data/synth/test/` (120 docs, gabarit 3 jamais vu à l'entraînement, 25 % en PDF)
 - [ ] Compléter le test avec des **photos de vrais tickets** (numéros de carte masqués) → `data/test_reel/`
-- [ ] MLflow dans `docker-compose.yml` (backend SQLite + artefacts en volume)
-- [ ] `training/evaluate.py --model <backend>` → MLflow : accuracy, F1-macro, matrice de confusion,
+- [x] MLflow dans `docker-compose.yml` (backend SQLite + artefacts en volume)
+- [x] `docrouter-evaluate --model <backend>` → MLflow : accuracy, F1-macro, matrice de confusion,
       courbe couverture/précision (pour fixer le seuil `a_verifier`), latence p50/p95, taille
-- [ ] **Comparer plusieurs modèles, pas seulement DiT**, avec le même jeu de test et les mêmes
+- [x] **Comparer plusieurs modèles, pas seulement DiT**, avec le même jeu de test et les mêmes
       métriques dans MLflow : DiT zero-shot (actuel), CLIP/SigLIP zero-shot, OCR + TF-IDF (baseline),
-      et au moins une autre architecture de vision adaptée (ViT ou EfficientNet)
-- [ ] Adaptation, en deux temps : ① **sonde linéaire** (backbone gelé, seule la tête à 4 classes est
+      et au moins une autre architecture de vision adaptée (ViT ou EfficientNet).
+      Fait : DiT et CLIP zero-shot, sondes DiT / ViT / CLIP → **probe-clip 97,5 %** (DiT 35 %).
+      OCR + TF-IDF reporté à la partie 2 (Tesseract à installer)
+- [x] Adaptation, en deux temps : ① **sonde linéaire** (backbone gelé, seule la tête à 4 classes est
       entraînée, sur CPU en quelques minutes) ; ② **fine-tuning complet** (GPU Colab/Kaggle)
       seulement si ① ne suffit pas. `training/finetune.py`, suivi MLflow
-- [ ] Le modèle retenu est choisi sur les mesures (précision, latence, taille) et le choix est justifié dans le journal
+- [x] Le modèle retenu est choisi sur les mesures (précision, latence, taille) et le choix est justifié dans le journal
 - [ ] Partie 2 : même démarche de comparaison pour l'OCR (Tesseract vs docTR) et l'extraction (règles vs Donut vs VLM)
-- [ ] Modèle fine-tuné poussé sur le **Hub HF** (privé), et l'API le télécharge avec `HF_TOKEN`
+- [ ] Brancher probe-clip dans l'API (`DOCROUTER_CLASSIFIER=probe`) + seuil revu
+- [ ] Modèle retenu poussé sur le **Hub HF** (privé), et l'API le télécharge avec `HF_TOKEN`
 - [ ] Critères : accuracy ≥ 90 %, F1-macro ≥ 0,88 → c'est le **modèle lourd de référence** de l'it. 8
 
 ### Phase 3 — It. 4 : optimisation

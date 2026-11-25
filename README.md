@@ -54,6 +54,22 @@ fictifs (Faker `fr_FR`) : 4 mises en page par classe, effets scan / photo, et v�
 (fournisseur, date, n°, HT, TVA, TTC) dans `data/synth/manifest.csv`. Le gabarit n° 3 est réservé
 au jeu de test (`data/synth/test/`), qu'on peut déposer directement dans le front.
 
+## Comparer les modèles (MLflow)
+
+```bash
+uv sync --group train              # torch CPU, transformers, scikit-learn, client MLflow
+docker compose up -d mlflow        # serveur de suivi : http://localhost:5000
+uv run docrouter-evaluate          # les 5 modèles sur data/synth/test (≈ 10 min la 1re fois)
+uv run docrouter-evaluate --model probe-dit --no-mlflow
+```
+
+Modèles comparés sur les mêmes 120 documents de test : `dit-zeroshot` (le modèle actuel de l'API),
+`clip-zeroshot`, et des sondes linéaires (`probe-dit`, `probe-vit`, `probe-clip`) : réseau gelé +
+régression logistique entraînée sur `train`. Chaque modèle donne un run MLflow (accuracy,
+F1-macro et F1 par classe, précision par effet et par format, seuil « à vérifier » recommandé,
+latence p50/p95, taille) avec la matrice de confusion et la courbe du seuil en artefacts.
+Tableau récapitulatif : `reports/eval/comparison.md` ; têtes entraînées : `models/probes/`.
+
 ## Développement local (uv)
 
 ```bash
