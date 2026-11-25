@@ -29,6 +29,7 @@ docrouter-evaluate = "docrouter_training.evaluate:main"
 docrouter-export-onnx = "docrouter_training.export_onnx:main"
 docrouter-load-report = "docrouter_training.load_report:main"
 docrouter-budget = "docrouter_training.budget:main"
+docrouter-api-history = "docrouter_training.api_history:main"
 
 [tool.uv.sources]
 docrouter-core = { workspace = true }

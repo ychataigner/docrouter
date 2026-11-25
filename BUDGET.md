@@ -35,7 +35,8 @@ prix change, on modifie la constante et on relance. Les calculs sont couverts pa
 |---|---|---|
 | Débit soutenu, ONNX INT8, 2 vCPU | **11,5 doc/s**, 0 erreur | Itération 5 (Locust) |
 | Débit soutenu, ONNX INT8, 4 vCPU | **20,5 doc/s**, 0 erreur | Itération 5 |
-| Requête isolée (prétraitement + modèle) | 106 ms (ONNX), ≈ 117 ms (PyTorch) | Itérations 4 et 5 |
+| Requête isolée (prétraitement + modèle), 2 vCPU | 106 ms (ONNX) / 333 ms (PyTorch) | Itérations 5 et 8 |
+| Débit soutenu, PyTorch (modèle lourd), 2 vCPU | 2,95 doc/s, 0 erreur | Itération 8 (Locust) |
 | Démarrage jusqu'à « prêt » | **4 s** (ONNX) / 24 s (PyTorch) | Itération 4 |
 | Image Docker | **538 Mo** (ONNX) / 1,87 Go (PyTorch) | Itération 4 |
 | RAM | 231 Mo au repos, ≤ 850 Mo sous charge | Itérations 4 et 5 |
@@ -61,8 +62,8 @@ En théorie, il pourrait traiter ≈ 30 millions de documents par mois.
 | **A. Cloud Run à la requête — ONNX INT8 (recommandé)** | **5,51 $** | **0,0055 $** | 2 vCPU / 2 Gio, 0 instance au repos ; 0,2 s facturées par document | démarrage à froid ≈ 4 s après une période sans trafic |
 | B. Cloud Run, instances toujours prêtes — ONNX INT8 | 105,25 $ | 0,1052 $ | min-instances = 1, 2 vCPU / 2 Gio | pas de démarrage à froid ; autoscaling au-delà |
 | C. VM e2-standard-2 × 2 (haute dispo) — ONNX INT8 | 114,01 $ | 0,1140 $ | `docker compose` tel quel (API + front + MLflow) | 23 doc/s au total, dimensionnement fixe |
-| D. Cloud Run à la requête — modèle lourd PyTorch | 5,64 $ | 0,0056 $ | même plateforme que A, image 1,87 Go | démarrage à froid ≈ 24 s : en pratique, il faut B (≈ 105 $) |
-| E. Hugging Face Inference Endpoint CPU (géré) | 43,80 $ | 0,0438 $ | 1 endpoint 2 vCPU toujours allumé, PyTorch | rien à administrer, mais documents envoyés chez un tiers (RGPD) |
+| D. Cloud Run à la requête — modèle lourd PyTorch | 16,24 $ | 0,0162 $ | même plateforme que A, image 1,87 Go ; 0,4 s facturées par document | démarrage à froid ≈ 24 s : en pratique, il faut 2 instances permanentes (≈ 210 $) |
+| E. Hugging Face Inference Endpoint CPU (géré) | 87,60 $ | 0,0876 $ | 2 endpoints 2 vCPU toujours allumés, PyTorch | rien à administrer, mais documents envoyés chez un tiers (RGPD) |
 | F. GPU NVIDIA T4 dédié | 365,00 $ | 0,3650 $ | 1 GPU allumé en permanence | inutile : le modèle répond en 54 ms sur CPU |
 | + Front Streamlit et MLflow (VM e2-medium) | 27,74 $ | 0,0277 $ | à ajouter à A, B, D, E ou F | déjà inclus dans C |
 
@@ -81,9 +82,9 @@ simultanées se partagent le même temps d'instance.
 | Documents / mois | Pic (doc/s) | A. Cloud Run à la requête | B. Cloud Run toujours prêt | C. VM × N (HA) | E. HF Endpoint CPU |
 |---|---|---|---|---|---|
 | 100 000 | 0,4 | 0 $ (part gratuite) | 105 $ | 114 $ | 44 $ |
-| **1 000 000** | 3,8 | **6 $** | 105 $ | 114 $ | 44 $ |
-| 10 000 000 | 37,9 | 105 $ | 421 $ | 229 $ | 219 $ |
-| 100 000 000 | 378,8 | 1 101 $ | 3 476 $ | 1 886 $ | 2 015 $ |
+| **1 000 000** | 3,8 | **6 $** | 105 $ | 114 $ | 88 $ |
+| 10 000 000 | 37,9 | 105 $ | 421 $ | 229 $ | 569 $ |
+| 100 000 000 | 378,8 | 1 101 $ | 3 476 $ | 1 886 $ | 5 650 $ |
 
 Lecture : le serverless (A) reste le moins cher à tous les volumes étudiés. Au-delà de
 ≈ 10 millions de documents par mois, des VM réservées (engagement 1 à 3 ans, −25 à −55 %) ou un
@@ -92,12 +93,12 @@ figure pas dans ce tableau : son débit n'a pas été mesuré.
 
 ## 6. Ce que l'optimisation a rapporté
 
-- **ONNX INT8 et serverless vont ensemble.** Par document, le modèle lourd coûterait presque
-  autant que l'ONNX (scénario D) : les deux tiennent dans le même arrondi de 100 ms. La
-  différence est ailleurs : **24 s de démarrage à froid** contre 4 s. Avec PyTorch, il faut
-  garder une instance allumée en permanence (≈ 105 $/mois) pour que les utilisateurs
-  n'attendent pas ; avec ONNX, l'API peut s'éteindre la nuit et le week-end (≈ 6 $/mois).
-  L'optimisation divise donc la facture par **≈ 19**.
+- **ONNX INT8 et serverless vont ensemble.** Mesuré dans les mêmes conditions (2 vCPU,
+  itération 8), le modèle lourd traite 2,95 doc/s contre 11,5 : chaque document coûte ≈ 3 fois
+  plus (scénario D : 16 $ contre 6 $). Surtout, son **démarrage à froid de 24 s** (contre 4 s)
+  oblige à garder des instances allumées en permanence : 2 instances pour tenir le pic,
+  ≈ 210 $/mois. Avec ONNX, l'API peut s'éteindre la nuit et le week-end (≈ 6 $/mois).
+  L'optimisation divise donc la facture par **≈ 38**.
 - **Pas de GPU.** Sur CPU, l'inférence prend 54 ms. Un GPU T4 coûterait ≈ 365 $/mois pour
   quelques millisecondes gagnées. Le GPU ne serait utile que pour entraîner, ce que la sonde
   linéaire évite : entraînement en quelques minutes sur CPU, donc coût négligeable.

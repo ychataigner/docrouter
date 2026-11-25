@@ -13,6 +13,9 @@ services:
     # DOCROUTER_API_KEYS (clés autorisées, une par client) vient de .env, jamais versionné.
     environment:
       DOCROUTER_CLASSIFIER: ${DOCROUTER_CLASSIFIER:-dummy}
+      # Itération 8 : historique des requêtes (métadonnées seulement) dans MLflow
+      DOCROUTER_MLFLOW_URI: ${API_MLFLOW_URI-http://mlflow:5000}
+      DOCROUTER_RUN_LABEL: ${API_RUN_LABEL:-}
       TZ: Europe/Paris
     ports:
       - "8000:8000"

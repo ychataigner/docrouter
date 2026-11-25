@@ -24,9 +24,9 @@ MEASURED = {
     "onnx_docs_per_s_4vcpu": 20.5,
     # Temps d'une requête isolée côté serveur (prétraitement + modèle), p50, 2 vCPU
     "onnx_request_s": 0.106,
-    # Modèle lourd (PyTorch) : modèle 86 ms au lieu de 54 ms (itération 4) → débit estimé
-    "torch_docs_per_s_2vcpu": 11.5 * (54 + 33) / (86 + 33),
-    "torch_request_s": 0.117,
+    # Modèle lourd (PyTorch), mesuré dans les mêmes conditions (itération 8 : 2 vCPU, Locust)
+    "torch_docs_per_s_2vcpu": 2.95,
+    "torch_request_s": 0.333,
     # Démarrage à froid jusqu'à « prêt » (itération 4)
     "onnx_cold_start_s": 4,
     "torch_cold_start_s": 24,

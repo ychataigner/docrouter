@@ -249,7 +249,50 @@ les mesures. Chaque itération terminée porte un tag Git (`git tag`).
   - support `hf://` pour télécharger les modèles depuis le Hub.
 - La comparaison CPU / GPU est chiffrée dans [`BUDGET.md`](../BUDGET.md) : le GPU est inutile
   pour l'inférence (54 ms sur CPU).
-## Itération 8 — Le Rétroviseur ⏳
+## Itération 8 — Le Rétroviseur ✅
+
+- **Ce que demande le sujet** : suivre le temps de réponse, comparer le modèle lourd
+  (itération 2) et le modèle optimisé (itération 4), et livrer un dashboard MLflow de
+  l'historique des requêtes et des métriques.
+- **MLflow dans le projet** : serveur dans `docker-compose.yml` (http://localhost:5000), avec
+  trois expériences :
+
+| Expérience | Contenu | Alimentée par |
+|---|---|---|
+| `docrouter-classification` | Précision, F1, latence et taille des 7 variantes de modèle sur le même jeu de test (DiT, CLIP, sondes, PyTorch / ONNX fp32 / INT8) | `docrouter-evaluate` |
+| `docrouter-load` | Campagnes de charge : débit et latence par palier | `docrouter-load-report` |
+| **`docrouter-api`** | **Historique des vraies requêtes de l'API** : un run par démarrage, un point par requête | l'API elle-même |
+
+- **Historique des requêtes** (`services/api/src/docrouter_api/tracking.py`) :
+  - Chaque requête ajoute un point au run de l'API : temps total, prétraitement, attente,
+    inférence, confiance, passage en « à vérifier ». Le run cumule aussi des compteurs par type
+    de document et par client, et le taux « à vérifier ».
+  - Toutes les 5 s, un CSV de l'historique est déposé dans les artefacts du run.
+  - Paramètres du run : modèle, version, seuil, threads, inférences simultanées.
+  - **Aucun contenu** : ni image, ni nom de fichier (testé).
+  - **Sans ralentir la réponse** : file en mémoire et thread d'envoi par lots. Si MLflow tombe,
+    l'API continue (testé).
+  - **Pas de paquet `mlflow` dans l'image** : client minimal sur l'API REST de MLflow, avec la
+    bibliothèque standard.
+- **Lourd vs optimisé sur de vraies requêtes** : la même charge Locust (1, 4 puis 8
+  utilisateurs, 2 vCPU) envoyée à l'API PyTorch puis à l'API ONNX, chacune enregistrée dans
+  `docrouter-api` :
+
+![Historique des requêtes : PyTorch vs ONNX](images/api_history.png)
+
+| Run (2 vCPU) | Requêtes en 90 s | Débit | Total p50 / p95 | Inférence p50 | Erreurs |
+|---|---|---|---|---|---|
+| PyTorch (lourd) | 269 | 2,95 doc/s | 1 195 / 2 496 ms | 295 ms | 0 |
+| **ONNX INT8 (optimisé)** | **971** | **11,5 doc/s** | **314 / 663 ms** | **74 ms** | 0 |
+
+  À ressources égales, l'optimisé traite **3,7 × plus** de documents. L'écart est plus grand
+  qu'à l'itération 4 (54 contre 86 ms, sur les 12 cœurs du PC) : bridé à 2 vCPU, PyTorch lance
+  autant de threads que la machine a de cœurs et se gêne lui-même. Le nombre de threads
+  d'onnxruntime, lui, est réglé (`DOCROUTER_ONNX_THREADS`). Ces mesures remplacent
+  l'estimation PyTorch du budget.
+- **Version imprimable du dashboard** : `uv run docrouter-api-history` (tableau comparatif et
+  graphique ci-dessus, à partir des artefacts MLflow).
+- **Tests** : 7 nouveaux (`tests/test_tracking.py`, avec un faux serveur MLflow), 107 au total.
 ## Itération 9 — La Facture ✅
 
 - **Objectif** : estimer le coût cloud pour 1 million d'images par mois, finaliser la documentation.
@@ -263,14 +306,14 @@ les mesures. Chaque itération terminée porte un tag Git (`git tag`).
 | **Cloud Run à la requête, ONNX INT8 (recommandé)** | **≈ 6 $** |
 | Cloud Run, instance toujours prête | ≈ 105 $ |
 | 2 VM e2-standard-2 (haute dispo) | ≈ 114 $ |
-| Hugging Face Endpoint CPU | ≈ 44 $ |
+| Hugging Face Endpoint CPU | ≈ 88 $ |
 | GPU T4 dédié | ≈ 365 $ |
 
   Avec le front et MLflow sur une petite VM : ≈ 34 $/mois, soit 0,03 $ pour 1 000 documents.
 - **Constats** :
   - Le pic estimé (3,8 doc/s) n'occupe qu'un tiers d'un conteneur à 2 vCPU.
   - Le démarrage en 4 s obtenu avec ONNX permet d'éteindre l'API sans trafic. Avec PyTorch
-    (24 s), il faudrait une instance permanente : facture × 19.
+    (24 s et 2,95 doc/s), il faudrait 2 instances permanentes : facture × 38.
   - Le GPU est inutile pour l'inférence.
 - **Documentation finalisée** : README (résultats clés, structure, commandes), journal complet,
   section RGPD, budget.

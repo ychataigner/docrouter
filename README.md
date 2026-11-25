@@ -16,7 +16,8 @@ dans le bon dossier. Spécifications complètes : [SPECIFICATIONS.md](SPECIFICAT
 | Précision (jeu de test, mise en page jamais vue) | **97,5 %** (DiT pré-entraîné : 35 %) | [docs/iterations.md](docs/iterations.md) |
 | Temps de réponse | ≈ 90 ms par document (modèle : 54 ms) | itérations 4 et 5 |
 | Image Docker de l'API | **538 Mo** (PyTorch : 1,87 Go) | itération 4 |
-| Débit | 11,5 doc/s à 2 vCPU, 20,5 doc/s à 4 vCPU, 0 erreur | itération 5 |
+| Débit | 11,5 doc/s à 2 vCPU (PyTorch : 2,95), 20,5 doc/s à 4 vCPU, 0 erreur | itérations 5 et 8 |
+| Suivi | Historique des requêtes et comparaison des modèles dans MLflow | itération 8 |
 | Sécurité | Clé d'API par client, aucun document écrit sur disque | itération 6 |
 | Budget, 1 M documents / mois | **≈ 6 $/mois** pour l'API (≈ 34 $ avec front et MLflow) | [BUDGET.md](BUDGET.md) |
 
@@ -103,6 +104,20 @@ F1-macro et F1 par classe, précision par effet et par format, seuil « à véri
 latence p50/p95, taille) avec la matrice de confusion et la courbe du seuil en artefacts.
 Tableau récapitulatif : `reports/eval/comparison.md` ; têtes entraînées : `models/probes/`.
 
+## Suivi MLflow et historique des requêtes (itération 8)
+
+MLflow tourne avec le compose (http://localhost:5000). L'API y envoie l'historique de ses
+requêtes (expérience **`docrouter-api`**) : durées, confiance, type, client, taux « à vérifier »,
+sans aucun contenu du document. Les autres expériences comparent les modèles
+(`docrouter-classification`) et les campagnes de charge (`docrouter-load`).
+
+```bash
+uv run docrouter-api-history     # tableau et graphique des derniers runs de l'API
+```
+
+`DOCROUTER_MLFLOW_URI` vide désactive le suivi ; `API_RUN_LABEL` nomme le run, par exemple
+pour comparer PyTorch et ONNX sous la même charge.
+
 ## Test de charge (itération 5)
 
 ```powershell
@@ -182,5 +197,6 @@ Commandes du dossier `training/` (après `uv sync --group train`) :
 | `docrouter-export-onnx` | exporte le réseau en ONNX et le quantifie en INT8 |
 | `docrouter-load-report` | analyse une campagne de charge Locust (MLflow) |
 | `docrouter-budget` | recalcule le budget à partir des mesures et des tarifs |
+| `docrouter-api-history` | résume l'historique des requêtes de l'API (MLflow) |
 
 Ajouter une dépendance à un service : `uv add --package docrouter-api <paquet>`.

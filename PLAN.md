@@ -128,12 +128,10 @@ L'ordre suit les itérations. Chaque phase se termine par un **tag Git** et une 
 - [ ] Tag `it6`
 
 ### Phase 6 — It. 8 : MLflow en production
-- [ ] L'API **logge chaque requête** dans MLflow (en tâche de fond, sans bloquer la réponse) :
-      latence prétraitement / inférence / totale, modèle et version, classe, confiance, `a_verifier`,
-      **sans aucun contenu du document**
-- [ ] Même test Locust lancé sur le **modèle lourd** puis sur l'**ONNX** → deux expériences comparables
-- [ ] Corrections manuelles du front loggées (taux d'erreur réel du modèle)
-- [ ] **Livrable** : captures du dashboard MLflow (historique des requêtes, comparaison lourd / optimisé)
+- [x] L'API **logge chaque requête** dans MLflow (file + thread, client REST minimal, sans contenu)
+- [x] Même test Locust sur le **modèle lourd** puis sur l'**ONNX** → 2,95 vs 11,5 doc/s
+- [ ] (facultatif) Corrections manuelles du front loggées (taux d'erreur réel du modèle)
+- [x] **Livrable** : expérience `docrouter-api` (dashboard MLflow) + `docrouter-api-history`
 - [ ] Tag `it8`
 
 ### Phase 7 — It. 7 : cloud

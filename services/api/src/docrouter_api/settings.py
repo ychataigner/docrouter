@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # du conteneur pour une inférence : au-delà de 1, elles se disputent les cœurs et le débit
     # baisse sous forte charge. Les requêtes suivantes attendent leur tour.
     max_concurrent_inferences: int = 1
+    # Itération 8 : historique des requêtes dans MLflow (vide = désactivé).
+    mlflow_uri: str = ""
+    run_label: str = ""  # nom du run MLflow (par défaut : le modèle)
     confidence_threshold: float = 0.60
     # Clés d'API autorisées, une par client : "front:<clé>,compta:<clé>". Vide → /v1/* refusé.
     api_keys: SecretStr = SecretStr("")

@@ -4,6 +4,7 @@ import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import Annotated
 
 from docrouter_core import (
@@ -29,6 +30,7 @@ from docrouter_api.security import (
     keep_uploads_in_memory,
 )
 from docrouter_api.settings import Settings, get_settings
+from docrouter_api.tracking import RequestEvent, RequestTracker, http_transport
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("docrouter.api")
@@ -51,7 +53,9 @@ api_key_scheme = APIKeyHeader(
 
 
 def create_app(
-    settings: Settings | None = None, classifier: DocumentClassifier | None = None
+    settings: Settings | None = None,
+    classifier: DocumentClassifier | None = None,
+    tracker: RequestTracker | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
     api_keys = ApiKeys.parse(settings.api_keys.get_secret_value())
@@ -76,7 +80,12 @@ def create_app(
             except Exception:
                 # L'API démarre quand même : /health signale le problème (pas de crash en boucle).
                 logger.exception("Impossible de charger le modèle (%s)", settings.classifier)
+        app.state.tracker = tracker or _build_tracker(settings, app.state.classifier)
+        if app.state.tracker:
+            app.state.tracker.start()
         yield
+        if app.state.tracker:
+            app.state.tracker.stop()
 
     app = FastAPI(
         title="DocRouter API",
@@ -136,6 +145,7 @@ def create_app(
         _key: Annotated[str | None, Security(api_key_scheme)] = None,
     ) -> ClassifyResponse:
         clf = get_classifier(request)
+        received = time.perf_counter()
         request_id = uuid.uuid4().hex[:8]
         timings: dict[str, float] = {}
 
@@ -174,6 +184,22 @@ def create_app(
             document.page_count,
             timings,
         )
+        if request.app.state.tracker:  # itération 8 : métadonnées seulement, en tâche de fond
+            request.app.state.tracker.record(
+                RequestEvent(
+                    request_id=request_id,
+                    client=request.state.client,
+                    type=doc_type.value,
+                    confidence=confidence,
+                    destination=destination,
+                    needs_review=confidence < settings.confidence_threshold,
+                    pages=document.page_count,
+                    total_ms=_elapsed_ms(received),
+                    preprocess_ms=timings["preprocess"],
+                    queue_ms=timings["queue"],
+                    inference_ms=timings["classify"],
+                )
+            )
         return ClassifyResponse(
             request_id=request_id,
             filename=file.filename or "document",
@@ -191,6 +217,26 @@ def create_app(
         )
 
     return app
+
+
+def _build_tracker(settings: Settings, classifier: DocumentClassifier | None):
+    """Suivi MLflow si DOCROUTER_MLFLOW_URI est défini (itération 8)."""
+    if not settings.mlflow_uri:
+        return None
+    model = classifier.name if classifier else settings.expected_model
+    started = datetime.now().strftime("%Y-%m-%d %H:%M")
+    return RequestTracker(
+        http_transport(settings.mlflow_uri),
+        run_name=f"{settings.run_label or model} — {started}",
+        params={
+            "model": model,
+            "api_version": __version__,
+            "classifier": settings.classifier,
+            "confidence_threshold": str(settings.confidence_threshold),
+            "onnx_threads": str(settings.onnx_threads),
+            "max_concurrent_inferences": str(settings.max_concurrent_inferences),
+        },
+    )
 
 
 def _warm_up(classifier: DocumentClassifier, pdf_dpi: int) -> None:
