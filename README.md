@@ -4,9 +4,9 @@ API de routage de documents administratifs par vision par ordinateur : on dépos
 (facture, note de frais, bon de livraison, autre), il est classé automatiquement puis rangé
 dans le bon dossier. Spécifications complètes : [SPECIFICATIONS.md](SPECIFICATIONS.md).
 
-> **État actuel (partie 1)** : le tri par IA est **optionnel**. Par défaut, l'API utilise un
-> **tri simulé** (`dummy`, sans IA) pour développer et tester le front. Le modèle DiT
-> s'active avec l'option `ml` (voir plus bas).
+> **Partie 1** : tri par IA avec une sonde CLIP exécutée en ONNX INT8 (97,5 % sur le jeu de
+> test, voir [docs/iterations.md](docs/iterations.md)). Sans la surcouche IA, l'API utilise un
+> **tri simulé** (`dummy`) pour développer le front.
 
 ## Architecture
 
@@ -20,7 +20,13 @@ Dossiers de sortie : `factures/`, `notes_de_frais/`, `bons_de_livraison/`, `autr
 
 ## Lancer avec Docker (mode front, sans IA)
 
+Créer d'abord le fichier `.env` (jamais versionné) avec une clé d'API pour le front :
+
 ```bash
+cp .env.example .env
+python -c "import secrets; print(secrets.token_urlsafe(32))"   # clé à recopier dans .env
+#   DOCROUTER_API_KEYS=front:<clé>   (clés acceptées par l'API, une par client)
+#   DOCROUTER_API_KEY=<clé>          (clé envoyée par le front)
 docker compose up --build -d
 ```
 
@@ -81,6 +87,35 @@ la version exportée, avec le code de l'API. Chaque modèle donne un run MLflow 
 F1-macro et F1 par classe, précision par effet et par format, seuil « à vérifier » recommandé,
 latence p50/p95, taille) avec la matrice de confusion et la courbe du seuil en artefacts.
 Tableau récapitulatif : `reports/eval/comparison.md` ; têtes entraînées : `models/probes/`.
+
+## Sécurité et RGPD (itération 6)
+
+**Authentification.** Les routes `/v1/*` exigent l'en-tête `X-API-Key`. Chaque client a sa clé
+(`DOCROUTER_API_KEYS="front:<clé>,compta:<clé>"`) : les journaux indiquent qui appelle, et on
+révoque un client en retirant sa clé, sans toucher aux autres. Sans clé configurée, l'API refuse
+tout (elle ne s'ouvre pas par défaut). Les clés ne sont lues que dans l'environnement (`.env`,
+non versionné), comparées en temps constant, et jamais journalisées. Dans Swagger, bouton
+**Authorize**. `/health` et `/docs` restent publics.
+
+**Aucune image conservée par l'API.**
+- Le document est traité **en mémoire** : Starlette écrit normalement sur disque tout fichier
+  reçu de plus de 1 Mo ; ce comportement est neutralisé (`security.py`), ce que vérifie un test.
+- Clé et taille sont contrôlées **avant** la lecture du document : un appel refusé ne transmet rien.
+- Le conteneur de l'API est en **lecture seule** (`read_only`, `/tmp` en mémoire, aucun
+  privilège) : il ne peut physiquement pas enregistrer un document.
+- Les journaux ne contiennent que des métadonnées : identifiant de requête, client, type prédit,
+  confiance, durées. Ni image, ni nom de fichier, ni clé (vérifié par un test).
+
+| Question RGPD | Réponse pour DocRouter |
+|---|---|
+| Données traitées | Factures, notes de frais, BL : noms, adresses, montants, parfois données de carte bancaire (tickets) |
+| Finalité | Trier les documents pour les ranger dans le bon dossier |
+| Conservation par l'API | **Aucune** : traitement en mémoire, durée de la requête |
+| Conservation par le front | Les documents rangés (`output/`) restent chez l'utilisateur : c'est le service rendu. Il peut les supprimer à tout moment |
+| Accès | Clé d'API par client, révocable ; aucun accès anonyme |
+| Transferts | Aucun envoi à un service tiers : le modèle tourne dans le conteneur (pas d'API externe). Les seuls téléchargements sont ceux des poids du modèle |
+| Chiffrement | En production, HTTPS obligatoire devant l'API (reverse proxy ou service cloud) ; les clés circulent dans un en-tête, donc jamais en clair hors HTTPS |
+| Données de développement | Uniquement des documents **fictifs** (générateur) : aucune donnée personnelle réelle pour entraîner ou tester |
 
 ## Développement local (uv)
 

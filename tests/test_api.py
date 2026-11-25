@@ -13,9 +13,15 @@ CONFIDENT_INVOICE = {
 }
 
 
+TEST_KEY = "cle-de-test-0123456789abcdef"
+AUTH = {"X-API-Key": TEST_KEY}
+
+
 def make_client(classifier=None, **settings) -> TestClient:
     classifier = classifier or DummyClassifier(CONFIDENT_INVOICE)
-    return TestClient(create_app(Settings(classifier="dummy", **settings), classifier))
+    settings.setdefault("api_keys", f"tests:{TEST_KEY}")
+    app = create_app(Settings(classifier="dummy", **settings), classifier)
+    return TestClient(app, headers=AUTH)
 
 
 @pytest.fixture
@@ -91,7 +97,8 @@ def test_model_not_loaded_returns_503(monkeypatch):
         raise OSError("modèle introuvable")
 
     monkeypatch.setattr("docrouter_api.main.build_classifier", failing_build)
-    with TestClient(create_app(Settings())) as client:
+    settings = Settings(api_keys=f"tests:{TEST_KEY}")
+    with TestClient(create_app(settings), headers=AUTH) as client:
         assert client.get("/health").json()["model_ready"] is False
         response = client.post("/v1/classify", files={"file": ("x.png", _png(), "image/png")})
     assert response.status_code == 503

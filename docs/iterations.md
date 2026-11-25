@@ -172,7 +172,33 @@ les mesures. Chaque itération terminée porte un tag Git (`git tag`).
 - **Reste** : publier la tête et le modèle ONNX sur le Hub Hugging Face (privé) pour que l'image
   n'ait plus besoin du dossier `models/` local.
 ## Itération 5 — Le Flux ⏳
-## Itération 6 — La Barrière ⏳
+## Itération 6 — La Barrière ✅
+
+- **Pourquoi, alors que nos données sont fictives** : le sujet vise le produit. En usage réel,
+  l'API recevrait de vraies factures et notes de frais (noms, adresses, montants, parfois des
+  numéros de carte). Les données fictives sont justement une mesure RGPD pour le développement.
+- **Authentification** : une clé d'API par client (`DOCROUTER_API_KEYS="front:…,compta:…"`),
+  en-tête `X-API-Key` sur `/v1/*`.
+  - Le client est identifié dans les journaux, et révocable seul.
+  - L'API est fermée si aucune clé n'est configurée (503) ; les clés de moins de 24 caractères
+    sont refusées au démarrage.
+  - Comparaison en temps constant ; clés uniquement dans `.env`.
+  - Bouton « Authorize » dans Swagger ; le front envoie sa clé.
+- **Aucune image conservée** :
+  - **Trouvé en route** : Starlette écrit sur disque (fichier temporaire) tout fichier reçu de
+    plus de 1 Mo, ce qui est le cas de la plupart des scans. Le seuil est relevé à la taille
+    maximale autorisée : le document reste en mémoire. Un test le prouve (il échoue si on
+    retire le correctif).
+  - La clé et la taille sont contrôlées **avant** la lecture du document (middleware).
+  - Conteneur de l'API en lecture seule, `/tmp` en mémoire, aucun privilège Linux : une
+    tentative d'écriture échoue (`Read-only file system`, vérifié dans le conteneur).
+  - Journaux limités aux métadonnées, sans nom de fichier ni clé (testé).
+- **Vérifié dans les conteneurs** : sans clé ou avec une mauvaise clé → 401 ; avec la clé du
+  front → classé ; 117/120 sur le jeu de test, comme avant. Le premier décodage JPEG/PDF prenait
+  1,5 s : il est désormais fait pendant l'échauffement au démarrage.
+- **Tests** : 13 nouveaux (`tests/test_security.py`), 89 au total.
+- **Hors périmètre** : HTTPS. Il est assuré en production par un reverse proxy ou le service
+  cloud, et l'itération 7 n'est pas réalisée (consigne).
 ## Itération 7 — Le Grand Saut ⏳
 ## Itération 8 — Le Rétroviseur ⏳
 ## Itération 9 — La Facture ⏳

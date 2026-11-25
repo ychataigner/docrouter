@@ -9,8 +9,14 @@ class ApiError(Exception):
 
 
 class ApiClient:
-    def __init__(self, base_url: str, timeout: float = 60.0, transport=None) -> None:
-        self._client = httpx.Client(base_url=base_url, timeout=timeout, transport=transport)
+    def __init__(
+        self, base_url: str, timeout: float = 60.0, transport=None, api_key: str = ""
+    ) -> None:
+        # La clé du front (X-API-Key) accompagne chaque requête ; elle n'est jamais affichée.
+        headers = {"X-API-Key": api_key} if api_key else {}
+        self._client = httpx.Client(
+            base_url=base_url, timeout=timeout, transport=transport, headers=headers
+        )
 
     def health(self) -> HealthResponse:
         response = self._request("GET", "/health", timeout=5.0)

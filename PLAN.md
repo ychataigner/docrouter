@@ -118,11 +118,12 @@ L'ordre suit les itérations. Chaque phase se termine par un **tag Git** et une 
 - [ ] Tag `it5`
 
 ### Phase 5 — It. 6 : sécurité et RGPD
-- [ ] Auth : `POST /auth/token` (JWT) ou clés d'API par client (révocables), routes `/v1/*` protégées, token côté front
-- [ ] Traitement 100 % en mémoire (neutraliser le spool disque des uploads), test « aucun fichier
-      résiduel » (dossier temporaire vide après requête)
-- [ ] Logs JSON sans contenu, secrets uniquement par variables d'environnement
-- [ ] Chiffrement : HTTPS (fourni par le cloud), section RGPD du README (finalité, durée, données qui sortent ou non)
+- [x] Auth : clés d'API par client (révocables), `X-API-Key` sur `/v1/*`, bouton Authorize dans
+      Swagger, clé envoyée par le front ; API fermée si aucune clé n'est configurée
+- [x] Traitement 100 % en mémoire (spool disque de Starlette neutralisé, prouvé par un test),
+      contrôles avant lecture du corps, conteneur en lecture seule
+- [x] Logs sans contenu (ni image, ni nom de fichier, ni clé), secrets uniquement par variables d'environnement
+- [x] Chiffrement : HTTPS en production (documenté), section RGPD du README
 - [ ] Tag `it6`
 
 ### Phase 6 — It. 8 : MLflow en production

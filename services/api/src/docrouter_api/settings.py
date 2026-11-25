@@ -1,6 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,6 +19,8 @@ class Settings(BaseSettings):
     # Réseau de la sonde exporté en ONNX (onnxruntime, sans PyTorch). Vide → PyTorch.
     onnx_model: str = "models/onnx/clip/model_int8.onnx"
     confidence_threshold: float = 0.60
+    # Clés d'API autorisées, une par client : "front:<clé>,compta:<clé>". Vide → /v1/* refusé.
+    api_keys: SecretStr = SecretStr("")
     max_upload_mb: int = 10
     pdf_render_dpi: int = 150
 

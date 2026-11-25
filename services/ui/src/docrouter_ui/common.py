@@ -37,7 +37,11 @@ settings = get_settings()
 
 @st.cache_resource
 def get_client() -> ApiClient:
-    return ApiClient(settings.api_url, timeout=settings.api_timeout_s)
+    return ApiClient(
+        settings.api_url,
+        timeout=settings.api_timeout_s,
+        api_key=settings.api_key.get_secret_value(),
+    )
 
 
 def get_registry() -> Registry:

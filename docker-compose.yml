@@ -10,6 +10,7 @@ services:
     env_file:
       - path: .env
         required: false
+    # DOCROUTER_API_KEYS (clés autorisées, une par client) vient de .env, jamais versionné.
     environment:
       DOCROUTER_CLASSIFIER: ${DOCROUTER_CLASSIFIER:-dummy}
       TZ: Europe/Paris
@@ -18,6 +19,15 @@ services:
     volumes:
       # Cache des modèles Hugging Face : téléchargés une seule fois.
       - hf-cache:/models
+    # Itération 6 : le conteneur ne peut rien écrire, hormis le cache des modèles et un /tmp
+    # en mémoire. Un document reçu ne peut donc pas être conservé sur le serveur.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   ui:
@@ -27,6 +37,7 @@ services:
     image: docrouter-ui:latest
     environment:
       DOCROUTER_API_URL: http://api:8000
+      DOCROUTER_API_KEY: ${DOCROUTER_API_KEY:-}  # clé du front, lue dans .env
       TZ: Europe/Paris
     ports:
       - "8501:8501"

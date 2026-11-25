@@ -7,7 +7,7 @@
 #   uv run docrouter-export-onnx                   → models/onnx/clip/ (réseau, 90 Mo en INT8)
 #
 # Modèle lourd de référence (PyTorch), pour comparer :
-#   ML_EXTRA=ml DOCROUTER_ONNX_MODEL= API_TAG=torch docker compose -f docker-compose.yml \
+#   ML_EXTRA=ml API_ONNX_MODEL= API_TAG=torch docker compose -f docker-compose.yml \
 #     -f docker-compose.ml.yml up --build -d api
 services:
   api:
@@ -16,8 +16,8 @@ services:
         ML_EXTRA: ${ML_EXTRA:-onnx}
     image: docrouter-api:${API_TAG:-ml}
     environment:
-      DOCROUTER_CLASSIFIER: ${DOCROUTER_CLASSIFIER:-probe}
+      DOCROUTER_CLASSIFIER: probe
       DOCROUTER_PROBE_HEAD: /app/models/probes/probe-clip.npz
-      DOCROUTER_ONNX_MODEL: ${DOCROUTER_ONNX_MODEL-/app/models/onnx/clip/model_int8.onnx}
+      DOCROUTER_ONNX_MODEL: ${API_ONNX_MODEL-/app/models/onnx/clip/model_int8.onnx}
     volumes:
       - ./models:/app/models:ro
