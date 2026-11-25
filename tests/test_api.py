@@ -141,5 +141,5 @@ def test_dit_without_ml_extra_explains_how_to_install(monkeypatch):
         return real_import(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "__import__", no_torch)
-    with pytest.raises(RuntimeError, match="extra `ml`"):
+    with pytest.raises(RuntimeError, match="Dépendances IA absentes"):
         build_classifier("dit", "any/model")

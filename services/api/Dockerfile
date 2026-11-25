@@ -1,5 +1,7 @@
 # Image de l'API — construite depuis la racine du dépôt : docker build -f services/api/Dockerfile .
-# Par défaut, image légère sans IA (tri simulé). Avec le modèle : --build-arg WITH_ML=true
+# Par défaut, image légère sans IA (tri simulé). Avec le modèle :
+#   --build-arg ML_EXTRA=onnx  production : onnxruntime, sans PyTorch
+#   --build-arg ML_EXTRA=ml    PyTorch (modèle lourd de référence, comparaisons)
 
 FROM python:3.11-slim AS builder
 COPY --from=ghcr.io/astral-sh/uv:0.13.1 /uv /bin/uv
@@ -7,7 +9,7 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_PYTHON_DOWNLOADS=0
 WORKDIR /app
-ARG WITH_ML=false
+ARG ML_EXTRA=
 
 # 1) Dépendances seules (couche mise en cache tant que uv.lock ne change pas)
 COPY pyproject.toml uv.lock ./
@@ -17,14 +19,14 @@ COPY services/ui/pyproject.toml services/ui/
 COPY training/pyproject.toml training/
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --package docrouter-api --no-install-workspace \
-    $([ "$WITH_ML" = "true" ] && echo "--extra ml")
+    $([ -n "$ML_EXTRA" ] && echo "--extra $ML_EXTRA")
 
 # 2) Code du projet
 COPY packages/core packages/core
 COPY services/api services/api
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --package docrouter-api --no-editable \
-    $([ "$WITH_ML" = "true" ] && echo "--extra ml")
+    $([ -n "$ML_EXTRA" ] && echo "--extra $ML_EXTRA")
 
 
 FROM python:3.11-slim

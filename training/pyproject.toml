@@ -14,7 +14,9 @@ dependencies = [
 [project.optional-dependencies]
 # Évaluation et entraînement des modèles (hors CI et hors images Docker) : `uv sync --group train`
 train = [
-    "docrouter-api[ml]",
+    "docrouter-api[ml,onnx]",
+    "onnx>=1.17",
+    "onnxscript>=0.2",
     "mlflow-skinny>=3.1",
     "matplotlib>=3.9",
     "scikit-learn>=1.5",
@@ -23,6 +25,7 @@ train = [
 [project.scripts]
 docrouter-generate = "docrouter_training.data.generate:main"
 docrouter-evaluate = "docrouter_training.evaluate:main"
+docrouter-export-onnx = "docrouter_training.export_onnx:main"
 
 [tool.uv.sources]
 docrouter-core = { workspace = true }

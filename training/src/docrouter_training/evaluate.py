@@ -210,6 +210,7 @@ COLUMNS = [
     ("latency_ms_p50", "p50 (ms)", "{:.0f}"),
     ("latency_ms_p95", "p95 (ms)", "{:.0f}"),
     ("size_mb_fp32", "Taille (Mo)", "{:.0f}"),
+    ("size_mb_file", "Fichier (Mo)", "{:.0f}"),
 ]
 
 

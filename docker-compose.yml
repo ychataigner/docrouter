@@ -4,8 +4,8 @@ services:
       context: .
       dockerfile: services/api/Dockerfile
       args:
-        # false = image légère, tri simulé (dev du front) ; true = embarque DiT + PyTorch
-        WITH_ML: ${WITH_ML:-false}
+        # vide = image légère, tri simulé (dev du front) ; onnx = modèle optimisé ; ml = PyTorch
+        ML_EXTRA: ${ML_EXTRA:-}
     image: docrouter-api:latest
     env_file:
       - path: .env

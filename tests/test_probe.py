@@ -5,7 +5,7 @@ Sans réseau ni PyTorch : l'extracteur d'images est remplacé par un faux qui re
 
 import numpy as np
 import pytest
-from docrouter_api.classifier import ProbeClassifier, build_classifier, resolve_head
+from docrouter_api.classifier import ProbeClassifier, build_classifier, resolve_file
 from docrouter_api.head import LinearHead
 from docrouter_api.settings import Settings
 from docrouter_core import DocumentType
@@ -55,11 +55,11 @@ def test_save_and_load_roundtrip_without_pickle(tmp_path):
         assert all(data[k].dtype != object for k in data.files)
 
 
-def test_resolve_head_missing_file_explains_how_to_create_it(tmp_path):
+def test_resolve_file_missing_file_explains_how_to_create_it(tmp_path):
     with pytest.raises(FileNotFoundError, match="docrouter-evaluate"):
-        resolve_head(str(tmp_path / "absent.npz"))
+        resolve_file(str(tmp_path / "absent.npz"), "uv run docrouter-evaluate")
     (tmp_path / "ok.npz").write_bytes(b"x")
-    assert resolve_head(str(tmp_path / "ok.npz")) == tmp_path / "ok.npz"
+    assert resolve_file(str(tmp_path / "ok.npz")) == tmp_path / "ok.npz"
 
 
 class FakeEmbedder:
@@ -88,7 +88,7 @@ def test_probe_classifier_predicts_with_the_head(tmp_path, monkeypatch):
 
     clf = build_classifier("probe", "unused", str(tmp_path / "probe.npz"))
     assert isinstance(clf, ProbeClassifier)
-    assert clf.name == "probe-clip (fake/backbone)"
+    assert clf.name == "probe-clip (fake/backbone, pytorch)"
 
     bright = clf.predict(Image.new("RGB", (10, 10), (250, 250, 250)))
     dark = clf.predict(Image.new("RGB", (10, 10), (0, 0, 0)))
@@ -99,6 +99,8 @@ def test_probe_classifier_predicts_with_the_head(tmp_path, monkeypatch):
 
 
 def test_expected_model_shown_by_health():
-    assert Settings(classifier="probe", probe_head="x.npz").expected_model == "x.npz"
+    assert Settings(classifier="probe", probe_head="x.npz", onnx_model="").expected_model == (
+        "x.npz + pytorch"
+    )
     assert Settings(classifier="dit").expected_model.startswith("microsoft/dit")
     assert Settings(classifier="dummy").expected_model == "dummy"

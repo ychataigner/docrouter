@@ -114,8 +114,8 @@ class ImageEmbedder:
         return feats.float().numpy()
 
 
-def resolve_head(spec: str) -> Path:
-    """Fichier local, ou `hf://<compte>/<dépôt>/<fichier>` téléchargé depuis le Hub (HF_TOKEN)."""
+def resolve_file(spec: str, hint: str = "") -> Path:
+    """Fichier local, ou `hf://<compte>/<dépôt>/<chemin>` téléchargé depuis le Hub (HF_TOKEN)."""
     if spec.startswith("hf://"):
         from huggingface_hub import hf_hub_download
 
@@ -123,25 +123,52 @@ def resolve_head(spec: str) -> Path:
         return Path(hf_hub_download(f"{owner}/{repo}", filename))
     path = Path(spec)
     if not path.exists():
-        raise FileNotFoundError(
-            f"Tête de classification introuvable : {spec} "
-            "(la produire avec `uv run docrouter-evaluate --model probe-clip`)."
-        )
+        raise FileNotFoundError(f"Fichier introuvable : {spec}" + (f" ({hint})" if hint else ""))
     return path
 
 
-class ProbeClassifier:
-    """Réseau gelé + tête linéaire à 4 classes (fichier `.npz`, voir `head.py`)."""
+def sibling(spec: str, name: str) -> str:
+    """Fichier voisin d'un autre (même dossier local ou même dossier du dépôt Hub)."""
+    return spec.rsplit("/", 1)[0] + "/" + name if "/" in spec else name
 
-    def __init__(self, head_spec: str) -> None:
+
+class ProbeClassifier:
+    """Réseau gelé + tête linéaire à 4 classes (fichier `.npz`, voir `head.py`).
+
+    Le réseau tourne avec onnxruntime si `onnx_model` est donné (production), sinon avec PyTorch.
+    """
+
+    def __init__(self, head_spec: str, onnx_model: str | None = None) -> None:
         from docrouter_api.head import LinearHead
 
-        head = LinearHead.load(resolve_head(head_spec))
-        logger.info("Chargement de la sonde %s sur %s", head.kind, head.backbone)
+        head = LinearHead.load(
+            resolve_file(
+                head_spec, "la produire avec `uv run docrouter-evaluate --model probe-clip`"
+            )
+        )
         self._head = head
         self._classes = [DocumentType(c) for c in head.classes]
-        self._embedder = ImageEmbedder(head.kind, head.backbone)
-        self.name = f"probe-{head.kind} ({head.backbone})"
+        if onnx_model:
+            from docrouter_api.onnx_embedder import OnnxEmbedder
+
+            hint = "le produire avec `uv run docrouter-export-onnx`"
+            onnx_model = onnx_model.replace("\\", "/")
+            self._embedder = OnnxEmbedder(
+                resolve_file(onnx_model, hint),
+                resolve_file(sibling(onnx_model, "preprocessor_config.json"), hint),
+                resolve_file(sibling(onnx_model, "export_info.json"), hint),
+            )
+            if (self._embedder.kind, self._embedder.model_id) != (head.kind, head.backbone):
+                raise ValueError(
+                    f"Le modèle ONNX ({self._embedder.model_id}) ne correspond pas à la tête "
+                    f"({head.backbone}) : ré-exporter ou ré-entraîner."
+                )
+            runtime = f"onnx {Path(onnx_model).stem}"
+        else:
+            self._embedder = ImageEmbedder(head.kind, head.backbone)
+            runtime = "pytorch"
+        logger.info("Sonde %s sur %s (%s)", head.kind, head.backbone, runtime)
+        self.name = f"probe-{head.kind} ({head.backbone}, {runtime})"
 
     def predict(self, image: Image.Image) -> Prediction:
         probs = self._head.probabilities(self._embedder.embed([image]))[0]
@@ -175,15 +202,18 @@ class DummyClassifier:
         return Prediction(scores=scores, raw_label="simulation")
 
 
-def build_classifier(kind: str, model_id: str, probe_head: str = "") -> DocumentClassifier:
+def build_classifier(
+    kind: str, model_id: str, probe_head: str = "", onnx_model: str | None = None
+) -> DocumentClassifier:
+    """`onnx_model` vide → la sonde tourne avec PyTorch (modèle lourd de référence)."""
     if kind == "dummy":
         return DummyClassifier()
     try:
         if kind == "probe":
-            return ProbeClassifier(probe_head)
+            return ProbeClassifier(probe_head, onnx_model or None)
         return DiTClassifier(model_id)
     except ImportError as exc:
         raise RuntimeError(
-            "Dépendances IA absentes : installer l'extra `ml` "
-            "(`uv sync --group ml`, ou build Docker avec WITH_ML=true)."
+            "Dépendances IA absentes : installer l'extra `onnx` (production, onnxruntime) "
+            "ou `ml` (PyTorch) — `uv sync --group ml`, ou build Docker avec ML_EXTRA=onnx|ml."
         ) from exc

@@ -41,7 +41,7 @@ def create_app(
         if app.state.classifier is None:
             try:
                 app.state.classifier = build_classifier(
-                    settings.classifier, settings.model_id, settings.probe_head
+                    settings.classifier, settings.model_id, settings.probe_head, settings.onnx_model
                 )
                 # Échauffement : la 1re inférence PyTorch est lente (≈ 10 s) ; on la paie au
                 # démarrage plutôt que sur le premier document envoyé.

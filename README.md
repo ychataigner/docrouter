@@ -39,14 +39,19 @@ Le modèle retenu est une **sonde linéaire sur CLIP** : la partie « image » d
 `openai/clip-vit-base-patch32`, gelée, suivie d'une tête à 4 classes entraînée sur nos documents
 (97,5 % sur le jeu de test, contre 35 % pour DiT non adapté ; voir la comparaison plus bas).
 
+En production, le réseau est **exporté en ONNX et quantifié en INT8** : l'API tourne avec
+onnxruntime, sans PyTorch (image 538 Mo au lieu de 1,87 Go, RAM 231 Mo, même précision).
+
 ```bash
-uv sync --group train && uv run docrouter-evaluate --model probe-clip   # produit models/probes/probe-clip.npz (14 Ko)
+uv sync --group train
+uv run docrouter-evaluate --model probe-clip   # tête → models/probes/probe-clip.npz (14 Ko)
+uv run docrouter-export-onnx                   # réseau → models/onnx/clip/model_int8.onnx (90 Mo)
 docker compose -f docker-compose.yml -f docker-compose.ml.yml up --build -d   # image docrouter-api:ml
 ```
 
-Au premier démarrage, l'API télécharge CLIP (~600 Mo) dans le volume `hf-cache`. La tête est
-montée depuis `models/probes/` (format `.npz` sans pickle). En local : `uv sync --group ml` et
-`DOCROUTER_CLASSIFIER=probe`. L'ancien modèle reste disponible avec `DOCROUTER_CLASSIFIER=dit`.
+Les deux fichiers sont montés depuis `models/` (non versionné). La tête est au format `.npz`
+sans pickle. Variante PyTorch (modèle lourd de référence) et ancien modèle DiT : voir
+`docker-compose.ml.yml` (`ML_EXTRA=ml`, `DOCROUTER_CLASSIFIER=dit`).
 
 ## Générer les documents de test (fictifs)
 
@@ -69,9 +74,10 @@ uv run docrouter-evaluate          # les 5 modèles sur data/synth/test (≈ 10 
 uv run docrouter-evaluate --model probe-dit --no-mlflow
 ```
 
-Modèles comparés sur les mêmes 120 documents de test : `dit-zeroshot` (le modèle actuel de l'API),
+Modèles comparés sur les mêmes 120 documents de test : `dit-zeroshot` (le premier modèle de l'API),
 `clip-zeroshot`, et des sondes linéaires (`probe-dit`, `probe-vit`, `probe-clip`) : réseau gelé +
-régression logistique entraînée sur `train`. Chaque modèle donne un run MLflow (accuracy,
+régression logistique entraînée sur `train` ; `probe-clip-onnx` et `probe-clip-int8` mesurent
+la version exportée, avec le code de l'API. Chaque modèle donne un run MLflow (accuracy,
 F1-macro et F1 par classe, précision par effet et par format, seuil « à vérifier » recommandé,
 latence p50/p95, taille) avec la matrice de confusion et la courbe du seuil en artefacts.
 Tableau récapitulatif : `reports/eval/comparison.md` ; têtes entraînées : `models/probes/`.

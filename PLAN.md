@@ -103,9 +103,11 @@ L'ordre suit les itérations. Chaque phase se termine par un **tag Git** et une 
 - [ ] Critères : accuracy ≥ 90 %, F1-macro ≥ 0,88 → c'est le **modèle lourd de référence** de l'it. 8
 
 ### Phase 3 — It. 4 : optimisation
-- [ ] Export ONNX (`optimum`) + quantization dynamique INT8, poussés sur le Hub
-- [ ] `ONNXClassifier` (onnxruntime seul) : **devient le backend par défaut**, l'image de prod perd torch
-- [ ] Comparaison lourd / optimisé : écart d'accuracy ≤ 2 pts, latence ≤ 500 ms, taille du modèle et de l'image
+- [x] Export ONNX (`torch.onnx`, `docrouter-export-onnx`) + quantization dynamique INT8
+      (per_channel + reduce_range). Publication sur le Hub : à faire (`hf://` déjà géré par l'API)
+- [x] `OnnxEmbedder` (onnxruntime + prétraitement numpy) : **backend par défaut**, l'image de prod perd torch
+- [x] Comparaison lourd / optimisé : même accuracy (97,5 %), modèle 54 ms au lieu de 86 ms,
+      image 538 Mo au lieu de 1,87 Go, RAM 231 Mo au lieu de 504 Mo
 - [ ] Tag `it4`
 
 ### Phase 4 — It. 5 : flux

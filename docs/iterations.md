@@ -132,7 +132,45 @@ les mesures. Chaque itération terminée porte un tag Git (`git tag`).
   Cause : PyTorch (814 Mo) et PyMuPDF, qui tirait onnxruntime. Solution : IA en option
   (`WITH_ML=true`) et passage à pypdfium2. Résultat : API 288 Mo, front 858 Mo, build en environ 8 min.
 
-## Itération 4 — L'Optimisation ⏳
+## Itération 4 — L'Optimisation ✅
+
+- **Objectif** : un modèle plus léger et plus rapide, sans perdre en précision.
+- **Réalisé** :
+  - `uv run docrouter-export-onnx` : export de la partie « image » de CLIP en ONNX (`torch.onnx`),
+    puis quantization dynamique INT8 (`onnxruntime.quantization`). Vérifications automatiques :
+    prétraitement numpy identique à Hugging Face (écart 5e-7), ONNX fp32 identique à PyTorch.
+  - L'API exécute le réseau avec **onnxruntime** et refait le prétraitement en PIL + numpy :
+    **plus de PyTorch ni de transformers** dans l'image de production (`ML_EXTRA=onnx`).
+  - Le fichier ONNX et la tête doivent venir du même modèle d'origine (`export_info.json`),
+    sinon l'API refuse de démarrer le classifieur.
+- **Choix de la quantization**, mesuré dans le banc (MLflow) :
+
+| Variante | Accuracy | Modèle (p50) | Fichier |
+|---|---|---|---|
+| PyTorch (référence) | 97,5 % | 89 ms | 351 Mo |
+| ONNX fp32 | 97,5 % | 66 ms | 353 Mo |
+| ONNX INT8 par défaut | 90,8 % ❌ | 64 ms | 90 Mo |
+| ONNX INT8 per_channel seul | 25 % ❌ (cassé) | — | 90 Mo |
+| **ONNX INT8 per_channel + reduce_range** | **97,5 %** | **60 ms** | **90 Mo** |
+
+  Sur les CPU x86 sans instructions VNNI, les produits 8 bits × 8 bits saturent : il faut
+  réduire la plage des poids à 7 bits (`reduce_range`). Une échelle par canal (`per_channel`)
+  limite ensuite la perte de précision. Avec INT8, 3 erreurs comme en PyTorch, dont une
+  différente, et une confiance qui varie de 0,05 en moyenne.
+- **Lourd vs optimisé, dans le conteneur** (120 documents envoyés à l'API, mêmes conditions) :
+
+| | PyTorch | **ONNX INT8** |
+|---|---|---|
+| Image Docker | 1,87 Go | **538 Mo** (−71 %) |
+| RAM du conteneur | 504 Mo | **231 Mo** (−54 %) |
+| Démarrage jusqu'à « prêt » | 24 s | **4 s** |
+| Modèle p50 / p95 | 86 / 109 ms | **54 / 78 ms** |
+| Requête complète p50 / p95 | 117 / 160 ms | **87 / 123 ms** |
+| Bien triés | 117/120 | 117/120 |
+
+  Critères du plan respectés : écart d'accuracy ≤ 2 points (0), latence ≤ 500 ms.
+- **Reste** : publier la tête et le modèle ONNX sur le Hub Hugging Face (privé) pour que l'image
+  n'ait plus besoin du dossier `models/` local.
 ## Itération 5 — Le Flux ⏳
 ## Itération 6 — La Barrière ⏳
 ## Itération 7 — Le Grand Saut ⏳

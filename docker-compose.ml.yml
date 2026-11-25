@@ -1,16 +1,23 @@
-# Surcouche « IA réelle » : API avec la sonde CLIP (PyTorch) au lieu du tri simulé.
+# Surcouche « IA réelle » : API avec la sonde CLIP au lieu du tri simulé.
 #   docker compose -f docker-compose.yml -f docker-compose.ml.yml up --build -d
-# L'image porte un tag distinct (docrouter-api:ml) : l'image légère reste disponible.
-# La tête de classification (14 Ko) est produite par `uv run docrouter-evaluate --model probe-clip`
-# dans models/probes/ ; le réseau CLIP est téléchargé depuis le Hub dans le volume hf-cache.
+#
+# Production (par défaut) : réseau exporté en ONNX INT8 et exécuté par onnxruntime, sans PyTorch.
+# Les fichiers viennent de models/ (non versionné) :
+#   uv run docrouter-evaluate --model probe-clip   → models/probes/probe-clip.npz (tête, 14 Ko)
+#   uv run docrouter-export-onnx                   → models/onnx/clip/ (réseau, 90 Mo en INT8)
+#
+# Modèle lourd de référence (PyTorch), pour comparer :
+#   ML_EXTRA=ml DOCROUTER_ONNX_MODEL= API_TAG=torch docker compose -f docker-compose.yml \
+#     -f docker-compose.ml.yml up --build -d api
 services:
   api:
     build:
       args:
-        WITH_ML: "true"
-    image: docrouter-api:ml
+        ML_EXTRA: ${ML_EXTRA:-onnx}
+    image: docrouter-api:${API_TAG:-ml}
     environment:
       DOCROUTER_CLASSIFIER: ${DOCROUTER_CLASSIFIER:-probe}
       DOCROUTER_PROBE_HEAD: /app/models/probes/probe-clip.npz
+      DOCROUTER_ONNX_MODEL: ${DOCROUTER_ONNX_MODEL-/app/models/onnx/clip/model_int8.onnx}
     volumes:
-      - ./models/probes:/app/models/probes:ro
+      - ./models:/app/models:ro

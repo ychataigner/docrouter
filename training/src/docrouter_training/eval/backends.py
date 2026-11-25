@@ -251,15 +251,58 @@ class LinearProbe:
         return {DocumentType(c): float(p) for c, p in zip(self._head.classes, probs, strict=True)}
 
 
-def make_backend(name: str, cache_dir: Path | None, save_dir: Path | None) -> Backend:
+class OnnxProbe:
+    """La sonde telle que l'API la sert en production : même tête, réseau exécuté par onnxruntime.
+
+    Pas d'entraînement : la tête est celle produite par `probe-clip` (PyTorch). On mesure donc
+    uniquement l'effet de l'export et de la quantization sur les réponses.
+    """
+
+    def __init__(self, name: str, head: Path, onnx_model: Path) -> None:
+        from docrouter_api.classifier import ProbeClassifier
+
+        self.name, self.onnx_model = name, onnx_model
+        self._clf = ProbeClassifier(str(head), str(onnx_model))
+
+    def params(self) -> dict[str, str]:
+        return {
+            "model_id": f"{CLIP_ID} ({self.onnx_model.name})",
+            "method": "sonde linéaire, réseau en ONNX (onnxruntime, sans PyTorch)",
+        }
+
+    def size(self) -> dict[str, float]:
+        return {"size_mb_file": self.onnx_model.stat().st_size / 1e6}
+
+    def prepare(self, train, val) -> dict[str, float]:
+        return {}
+
+    def predict(self, image: Image.Image) -> Scores:
+        return self._clf.predict(image).scores
+
+
+def make_backend(
+    name: str, cache_dir: Path | None, save_dir: Path | None, onnx_dir: Path | None = None
+) -> Backend:
+    head = (save_dir or Path("models/probes")) / "probe-clip.npz"
+    onnx_dir = onnx_dir or Path("models/onnx/clip")
     factories: dict[str, Callable[[], Backend]] = {
         "dit-zeroshot": DiTZeroShot,
         "clip-zeroshot": CLIPZeroShot,
         "probe-dit": lambda: LinearProbe("probe-dit", "dit", DIT_ID, cache_dir, save_dir),
         "probe-vit": lambda: LinearProbe("probe-vit", "vit", VIT_ID, cache_dir, save_dir),
         "probe-clip": lambda: LinearProbe("probe-clip", "clip", CLIP_ID, cache_dir, save_dir),
+        "probe-clip-onnx": lambda: OnnxProbe("probe-clip-onnx", head, onnx_dir / "model.onnx"),
+        "probe-clip-int8": lambda: OnnxProbe("probe-clip-int8", head, onnx_dir / "model_int8.onnx"),
     }
     return factories[name]()
 
 
-BACKEND_NAMES = ("dit-zeroshot", "clip-zeroshot", "probe-dit", "probe-vit", "probe-clip")
+BACKEND_NAMES = (
+    "dit-zeroshot",
+    "clip-zeroshot",
+    "probe-dit",
+    "probe-vit",
+    "probe-clip",
+    "probe-clip-onnx",
+    "probe-clip-int8",
+)

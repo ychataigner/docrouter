@@ -14,7 +14,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Tri par IA (sonde CLIP ou DiT). Sans cet extra, l'API tourne avec le classifieur simulé.
+# Tri par IA en production : modèle exporté en ONNX, exécuté par onnxruntime (sans PyTorch).
+onnx = [
+    "onnxruntime>=1.20",
+    "numpy>=1.26",
+    "huggingface-hub>=0.26",  # modèles hébergés sur le Hub (hf://…)
+]
+# Tri par IA avec PyTorch (modèle « lourd » de référence, sonde CLIP ou DiT).
 ml = [
     "transformers>=4.46",
     "torch>=2.5",
