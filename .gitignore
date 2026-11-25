@@ -13,15 +13,15 @@ __pycache__/
 .env
 
 # Données et sorties (documents, même fictifs, hors du dépôt)
-output/
-data/
+/output/
+/data/
 
 # Modèles et MLOps (publiés sur le Hub Hugging Face / suivis dans MLflow)
-models/
+/models/
 *.onnx
 *.safetensors
 *.bin
-mlruns/
-mlartifacts/
+/mlruns/
+/mlartifacts/
 mlflow.db
-reports/
+/reports/
