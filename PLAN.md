@@ -111,9 +111,10 @@ L'ordre suit les itérations. Chaque phase se termine par un **tag Git** et une 
 - [ ] Tag `it4`
 
 ### Phase 4 — It. 5 : flux
-- [ ] `load_test/` : Locust (montée en charge, p95, req/s, taux d'erreur) avec les docs du jeu de test
-- [ ] **Dossier de réception surveillé** (`watchdog`) : tout fichier déposé est envoyé à l'API et rangé
-- [ ] **Boucle de rétroaction** : les corrections de « Mes documents » (`registre.jsonl`) sont exportées
+- [x] `load_test/` : Locust (montée en charge, p95, req/s, taux d'erreur) avec les docs du jeu de test
+      → 11,5 doc/s à 2 vCPU, 20,5 à 4 vCPU, 0 erreur ; file d'attente des inférences ajoutée
+- [ ] (facultatif) **Dossier de réception surveillé** (`watchdog`) : tout fichier déposé est envoyé à l'API et rangé
+- [ ] (facultatif) **Boucle de rétroaction** : les corrections de « Mes documents » (`registre.jsonl`) sont exportées
       en jeu étiqueté pour le prochain fine-tuning
 - [ ] Tag `it5`
 

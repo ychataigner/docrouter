@@ -1,3 +1,4 @@
+import asyncio
 import io
 import logging
 import time
@@ -57,6 +58,7 @@ def create_app(
     if not api_keys:
         logger.warning("Aucune clé d'API (DOCROUTER_API_KEYS) : les routes /v1/* sont fermées.")
     keep_uploads_in_memory(settings.max_upload_bytes)
+    inference_slots = asyncio.Semaphore(settings.max_concurrent_inferences)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -64,7 +66,11 @@ def create_app(
         if app.state.classifier is None:
             try:
                 app.state.classifier = build_classifier(
-                    settings.classifier, settings.model_id, settings.probe_head, settings.onnx_model
+                    settings.classifier,
+                    settings.model_id,
+                    settings.probe_head,
+                    settings.onnx_model,
+                    settings.onnx_threads,
                 )
                 _warm_up(app.state.classifier, settings.pdf_render_dpi)
             except Exception:
@@ -151,8 +157,10 @@ def create_app(
         timings["preprocess"] = _elapsed_ms(start)
 
         start = time.perf_counter()
-        prediction = await run_in_threadpool(clf.predict, document.image)
-        timings["classify"] = _elapsed_ms(start)
+        async with inference_slots:  # file d'attente : le débit reste stable sous la charge
+            timings["queue"] = _elapsed_ms(start)
+            prediction = await run_in_threadpool(clf.predict, document.image)
+        timings["classify"] = _elapsed_ms(start) - timings["queue"]
 
         doc_type, confidence = prediction.best
         destination = destination_for(doc_type, confidence, settings.confidence_threshold)

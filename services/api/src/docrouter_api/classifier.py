@@ -138,7 +138,9 @@ class ProbeClassifier:
     Le réseau tourne avec onnxruntime si `onnx_model` est donné (production), sinon avec PyTorch.
     """
 
-    def __init__(self, head_spec: str, onnx_model: str | None = None) -> None:
+    def __init__(
+        self, head_spec: str, onnx_model: str | None = None, onnx_threads: int = 0
+    ) -> None:
         from docrouter_api.head import LinearHead
 
         head = LinearHead.load(
@@ -157,6 +159,7 @@ class ProbeClassifier:
                 resolve_file(onnx_model, hint),
                 resolve_file(sibling(onnx_model, "preprocessor_config.json"), hint),
                 resolve_file(sibling(onnx_model, "export_info.json"), hint),
+                threads=onnx_threads,
             )
             if (self._embedder.kind, self._embedder.model_id) != (head.kind, head.backbone):
                 raise ValueError(
@@ -203,14 +206,18 @@ class DummyClassifier:
 
 
 def build_classifier(
-    kind: str, model_id: str, probe_head: str = "", onnx_model: str | None = None
+    kind: str,
+    model_id: str,
+    probe_head: str = "",
+    onnx_model: str | None = None,
+    onnx_threads: int = 0,
 ) -> DocumentClassifier:
     """`onnx_model` vide → la sonde tourne avec PyTorch (modèle lourd de référence)."""
     if kind == "dummy":
         return DummyClassifier()
     try:
         if kind == "probe":
-            return ProbeClassifier(probe_head, onnx_model or None)
+            return ProbeClassifier(probe_head, onnx_model or None, onnx_threads)
         return DiTClassifier(model_id)
     except ImportError as exc:
         raise RuntimeError(

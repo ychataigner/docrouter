@@ -1,0 +1,14 @@
+# Itération 5 — test de charge : l'API est bridée à la taille d'un petit serveur cloud, pour que
+# les chiffres (documents/s par vCPU) servent au budget de l'itération 9.
+#   docker compose -f docker-compose.yml -f docker-compose.ml.yml -f docker-compose.load.yml up -d api
+#   API_CPUS=4 API_INFERENCES=2 docker compose ... up -d api          # autre taille
+#
+# Réglage retenu (mesures dans docs/iterations.md) : 2 threads onnxruntime par inférence et une
+# inférence simultanée par paire de vCPU (API_INFERENCES = API_CPUS / 2).
+services:
+  api:
+    cpus: ${API_CPUS:-2}
+    mem_limit: ${API_MEM:-2g}
+    environment:
+      DOCROUTER_ONNX_THREADS: ${API_THREADS:-2}
+      DOCROUTER_MAX_CONCURRENT_INFERENCES: ${API_INFERENCES:-1}

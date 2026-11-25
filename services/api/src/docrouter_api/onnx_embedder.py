@@ -68,7 +68,9 @@ class ImagePreprocessor:
 class OnnxEmbedder:
     """Même rôle que `ImageEmbedder` (PyTorch), avec le modèle ONNX."""
 
-    def __init__(self, model_path: Path, preprocessor_config: Path, export_info: Path) -> None:
+    def __init__(
+        self, model_path: Path, preprocessor_config: Path, export_info: Path, threads: int = 0
+    ) -> None:
         import onnxruntime as ort
 
         self.preprocess = ImagePreprocessor.from_config(
@@ -78,6 +80,9 @@ class OnnxEmbedder:
         self.kind, self.model_id = info["kind"], info["model_id"]
         options = ort.SessionOptions()
         options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        # 0 = automatique (tous les cœurs vus). Dans un conteneur limité à N CPU, fixer N :
+        # sinon onnxruntime lance autant de threads que de cœurs de la machine hôte.
+        options.intra_op_num_threads = threads
         self._session = ort.InferenceSession(
             str(model_path), options, providers=["CPUExecutionProvider"]
         )

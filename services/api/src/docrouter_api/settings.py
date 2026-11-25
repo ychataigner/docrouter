@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     probe_head: str = "models/probes/probe-clip.npz"
     # Réseau de la sonde exporté en ONNX (onnxruntime, sans PyTorch). Vide → PyTorch.
     onnx_model: str = "models/onnx/clip/model_int8.onnx"
+    # Threads d'onnxruntime par inférence (0 = auto). À aligner sur les CPU du conteneur.
+    onnx_threads: int = 0
+    # Inférences exécutées en même temps (itération 5). onnxruntime utilise déjà tous les CPU
+    # du conteneur pour une inférence : au-delà de 1, elles se disputent les cœurs et le débit
+    # baisse sous forte charge. Les requêtes suivantes attendent leur tour.
+    max_concurrent_inferences: int = 1
     confidence_threshold: float = 0.60
     # Clés d'API autorisées, une par client : "front:<clé>,compta:<clé>". Vide → /v1/* refusé.
     api_keys: SecretStr = SecretStr("")

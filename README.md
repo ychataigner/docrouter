@@ -88,6 +88,23 @@ F1-macro et F1 par classe, précision par effet et par format, seuil « à véri
 latence p50/p95, taille) avec la matrice de confusion et la courbe du seuil en artefacts.
 Tableau récapitulatif : `reports/eval/comparison.md` ; têtes entraînées : `models/probes/`.
 
+## Test de charge (itération 5)
+
+```powershell
+uv sync --group train
+$env:API_CPUS = 2                                        # 4 : ajouter $env:API_INFERENCES = 2
+docker compose -f docker-compose.yml -f docker-compose.ml.yml -f docker-compose.load.yml up -d api
+$env:DOCROUTER_API_KEY = "<clé du front, voir .env>"
+uv run locust -f load_test/locustfile.py --headless --host http://localhost:8000   # ≈ 3 min
+uv run docrouter-load-report reports/load/requests.csv --label "2 vCPU" --cpus 2
+```
+
+Sans `--headless`, Locust ouvre une page web (http://localhost:8089) avec les graphiques en
+direct. Résultat de référence : **≈ 11,5 doc/s à 2 vCPU, ≈ 20,5 doc/s à 4 vCPU**, sans erreur
+jusqu'à 32 utilisateurs simultanés (détails : [docs/iterations.md](docs/iterations.md)).
+Réglages utiles : `DOCROUTER_ONNX_THREADS` (2) et `DOCROUTER_MAX_CONCURRENT_INFERENCES`
+(nombre de vCPU / 2).
+
 ## Sécurité et RGPD (itération 6)
 
 **Authentification.** Les routes `/v1/*` exigent l'en-tête `X-API-Key`. Chaque client a sa clé

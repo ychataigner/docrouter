@@ -171,7 +171,47 @@ les mesures. Chaque itération terminée porte un tag Git (`git tag`).
   Critères du plan respectés : écart d'accuracy ≤ 2 points (0), latence ≤ 500 ms.
 - **Reste** : publier la tête et le modèle ONNX sur le Hub Hugging Face (privé) pour que l'image
   n'ait plus besoin du dossier `models/` local.
-## Itération 5 — Le Flux ⏳
+## Itération 5 — Le Flux ✅
+
+- **Objectif** : simuler un afflux continu de documents vers l'API et mesurer sa résistance.
+- **Réalisé** :
+  - `load_test/locustfile.py` (Locust) : des utilisateurs virtuels envoient en boucle, sans
+    pause, des documents du jeu de test (JPEG, PDF, photos), avec la clé d'API. La charge monte
+    par paliers (1, 2, 4, 8, 16, 32 utilisateurs, 30 s chacun) ; chaque requête est enregistrée.
+  - `uv run docrouter-load-report` : débit, latence p50/p95/p99, erreurs et précision par
+    palier, graphiques, et un run MLflow par campagne (expérience `docrouter-load`).
+  - `docker-compose.load.yml` : l'API est bridée à 2 ou 4 vCPU, comme un petit serveur cloud,
+    pour obtenir des chiffres par vCPU utiles au budget (itération 9). Sinon elle utiliserait
+    les 12 cœurs du PC, partagés avec Locust.
+- **Problème trouvé, puis corrigé** : sous forte charge, le débit **baissait** (2 vCPU : 11,7 →
+  8,5 doc/s à 32 utilisateurs). Toutes les inférences tournaient en même temps et se disputaient
+  les cœurs. Correctif : une **file d'attente** limite les inférences simultanées
+  (`DOCROUTER_MAX_CONCURRENT_INFERENCES`), et le nombre de threads d'onnxruntime est réglable
+  (`DOCROUTER_ONNX_THREADS`). Le décodage des images reste parallèle.
+- **Réglage, mesuré** : 2 threads par inférence, une inférence simultanée par paire de vCPU.
+
+![Comparaison des campagnes de charge](images/load_comparison.png)
+
+| Configuration | Débit max | Débit à 32 utilisateurs | Charge tenue avec p95 ≤ 500 ms | p95 à 32 utilisateurs |
+|---|---|---|---|---|
+| 2 vCPU, sans file | 11,7 doc/s | 8,5 doc/s | 4 utilisateurs | 5,3 s |
+| **2 vCPU, file (1 inférence × 2 threads)** | **11,7 doc/s** | **11,6 doc/s** | 4 utilisateurs | 4,7 s |
+| 4 vCPU, sans file | 18,5 doc/s | 15,4 doc/s | 4 utilisateurs | 2,8 s |
+| 4 vCPU, file (1 inférence × 4 threads) | 15,9 doc/s | 14,9 doc/s | 2 utilisateurs | 2,7 s |
+| **4 vCPU, file (2 inférences × 2 threads)** | **20,6 doc/s** | **20,5 doc/s** | **8 utilisateurs** | **1,6 s** |
+
+- **Constats** :
+  - **Aucune erreur** sur ≈ 9 000 requêtes, même à 32 utilisateurs : au-delà de la capacité,
+    l'API fait attendre au lieu de tomber.
+  - La précision reste de 95 à 99 % sous charge (tirage aléatoire parmi les 120 documents de
+    test, 97,5 % au total).
+  - Le débit plafonne à ≈ 5,5 doc/s par vCPU : c'est la base du calcul FinOps.
+  - RAM sous charge : 620 à 850 Mo (documents décodés en mémoire), pour une limite de 2 Go.
+  - 1 million d'images par mois, c'est en moyenne 0,4 doc/s : un seul conteneur à 2 vCPU
+    (≈ 11,5 doc/s) a une marge d'environ ×30, même avec des pics.
+- **Limites** : Locust tourne sur la même machine que l'API (les vCPU de l'API sont réservés
+  par Docker, mais le réseau est local). Le dossier surveillé et la boucle de rétroaction
+  prévus au plan ne sont pas réalisés (facultatifs).
 ## Itération 6 — La Barrière ✅
 
 - **Pourquoi, alors que nos données sont fictives** : le sujet vise le produit. En usage réel,

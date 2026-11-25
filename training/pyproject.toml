@@ -20,12 +20,14 @@ train = [
     "mlflow-skinny>=3.1",
     "matplotlib>=3.9",
     "scikit-learn>=1.5",
+    "locust>=2.32",  # itération 5 : test de charge
 ]
 
 [project.scripts]
 docrouter-generate = "docrouter_training.data.generate:main"
 docrouter-evaluate = "docrouter_training.evaluate:main"
 docrouter-export-onnx = "docrouter_training.export_onnx:main"
+docrouter-load-report = "docrouter_training.load_report:main"
 
 [tool.uv.sources]
 docrouter-core = { workspace = true }
