@@ -3,7 +3,7 @@
 import streamlit as st
 
 
-def build_pages() -> dict[str, list[st.Page]]:
+def build_pages() -> list[st.Page]:
     # Import local : les vues importent ce module pour leurs liens (`page(...)`).
     from docrouter_ui.views import comptabilite, depot, documents
 
@@ -28,10 +28,8 @@ def build_pages() -> dict[str, list[st.Page]]:
             url_path="comptabilite",
         ),
     )
-    return {
-        "Partie 1 · Routage": [_PAGES["depot"], _PAGES["documents"]],
-        "Partie 2 · Comptabilité": [_PAGES["comptabilite"]],
-    }
+    # Liste simple : le menu affiche les pages sans titre de section.
+    return [_PAGES["depot"], _PAGES["documents"], _PAGES["comptabilite"]]
 
 
 def page(name: str) -> st.Page:
