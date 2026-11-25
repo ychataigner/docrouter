@@ -13,6 +13,7 @@ from docrouter_core import (
 )
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
+from PIL import Image
 
 from docrouter_api import __version__
 from docrouter_api.classifier import DocumentClassifier, build_classifier
@@ -39,10 +40,15 @@ def create_app(
         app.state.classifier = classifier
         if app.state.classifier is None:
             try:
-                app.state.classifier = build_classifier(settings.classifier, settings.model_id)
+                app.state.classifier = build_classifier(
+                    settings.classifier, settings.model_id, settings.probe_head
+                )
+                # Échauffement : la 1re inférence PyTorch est lente (≈ 10 s) ; on la paie au
+                # démarrage plutôt que sur le premier document envoyé.
+                app.state.classifier.predict(Image.new("RGB", (224, 224), "white"))
             except Exception:
                 # L'API démarre quand même : /health signale le problème (pas de crash en boucle).
-                logger.exception("Impossible de charger le modèle %s", settings.model_id)
+                logger.exception("Impossible de charger le modèle (%s)", settings.classifier)
         yield
 
     app = FastAPI(
@@ -65,7 +71,7 @@ def create_app(
         return HealthResponse(
             status="ok" if clf else "degraded",
             version=__version__,
-            model=clf.name if clf else settings.model_id,
+            model=clf.name if clf else settings.expected_model,
             model_ready=clf is not None,
             confidence_threshold=settings.confidence_threshold,
             max_upload_mb=settings.max_upload_mb,

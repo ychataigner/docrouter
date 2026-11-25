@@ -20,7 +20,7 @@ les mesures. Chaque itération terminée porte un tag Git (`git tag`).
 - **Choix** : l'API est **sans état** et ne garde aucun fichier (préparation de l'itération 6).
   C'est le client (Streamlit) qui range les documents.
 
-## Itération 2 — Le Cerveau ✅ (modèle pré-entraîné, fine-tuning à venir)
+## Itération 2 — Le Cerveau ✅ (DiT pré-entraîné, puis sonde CLIP retenue sur mesures)
 
 - **Mission** : brancher un modèle Hugging Face et renvoyer une vraie prédiction.
 - **Réalisé** : DiT (`microsoft/dit-base-finetuned-rvlcdip`) tourne dans Docker
@@ -104,6 +104,24 @@ les mesures. Chaque itération terminée porte un tag Git (`git tag`).
   de vrais documents (`data/test_reel/`).
 - **Décision** : **probe-clip** devient le candidat pour l'API ; le fine-tuning complet n'est pas
   nécessaire à ce stade.
+
+## Sonde CLIP branchée dans l'API ✅
+
+- **Réalisé** : `DOCROUTER_CLASSIFIER=probe` (par défaut dans `docker-compose.ml.yml`).
+  - L'extracteur d'images (`ImageEmbedder`) et la tête (`LinearHead`) vivent dans l'API ;
+    l'entraînement les réutilise, donc les vecteurs de production sont calculés exactement comme
+    à l'entraînement.
+  - Seule la partie « image » de CLIP est chargée.
+  - La tête (14 Ko) est en `.npz` **sans pickle** : elle ne peut pas contenir de code, et l'API
+    n'a pas besoin de scikit-learn. Elle est montée depuis `models/probes/`, ou téléchargée
+    depuis le Hub avec `hf://…`.
+  - **Échauffement au démarrage** : la 1re inférence PyTorch coûtait 11 s sur la 1re requête.
+- **Vérification de bout en bout** : les 120 documents de test envoyés à l'API conteneurisée
+  donnent 117/120 corrects, soit les mêmes 3 erreurs que le banc (factures → BL, dont une
+  envoyée dans `a_verifier`).
+  - Latence par requête : p50 113 ms, p95 176 ms ; modèle seul : p50 84 ms.
+  - RAM du conteneur : 1,16 Go (contre ≈ 750 Mo avec DiT). Image : 1,87 Go, inchangée.
+  - Rangement : 30 autres, 31 BL, 26 factures, 30 notes de frais, 3 `a_verifier`.
 
 ## Itération 3 — L'Isolement ✅ (tag `it1-it3`)
 

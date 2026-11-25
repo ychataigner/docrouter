@@ -97,7 +97,8 @@ L'ordre suit les itérations. Chaque phase se termine par un **tag Git** et une 
       seulement si ① ne suffit pas. `training/finetune.py`, suivi MLflow
 - [x] Le modèle retenu est choisi sur les mesures (précision, latence, taille) et le choix est justifié dans le journal
 - [ ] Partie 2 : même démarche de comparaison pour l'OCR (Tesseract vs docTR) et l'extraction (règles vs Donut vs VLM)
-- [ ] Brancher probe-clip dans l'API (`DOCROUTER_CLASSIFIER=probe`) + seuil revu
+- [x] Brancher probe-clip dans l'API (`DOCROUTER_CLASSIFIER=probe`, tête `.npz` sans pickle)
+- [ ] Revoir le seuil `a_verifier` sur de vrais documents
 - [ ] Modèle retenu poussé sur le **Hub HF** (privé), et l'API le télécharge avec `HF_TOKEN`
 - [ ] Critères : accuracy ≥ 90 %, F1-macro ≥ 0,88 → c'est le **modèle lourd de référence** de l'it. 8
 

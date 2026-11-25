@@ -33,14 +33,20 @@ recopié dans le conteneur à chaque sauvegarde et la page se recharge).
 Le tri simulé renvoie toujours le même résultat pour un même document, et couvre les 4 classes
 ainsi que des cas incertains (→ `a_verifier`).
 
-## Activer le tri par IA (DiT)
+## Activer le tri par IA (sonde CLIP)
+
+Le modèle retenu est une **sonde linéaire sur CLIP** : la partie « image » de
+`openai/clip-vit-base-patch32`, gelée, suivie d'une tête à 4 classes entraînée sur nos documents
+(97,5 % sur le jeu de test, contre 35 % pour DiT non adapté ; voir la comparaison plus bas).
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.ml.yml up --build -d   # Docker (image docrouter-api:ml)
-uv sync --group ml                                                            # local
+uv sync --group train && uv run docrouter-evaluate --model probe-clip   # produit models/probes/probe-clip.npz (14 Ko)
+docker compose -f docker-compose.yml -f docker-compose.ml.yml up --build -d   # image docrouter-api:ml
 ```
 
-Au premier démarrage, l'API télécharge le modèle (~350 Mo) dans le volume `hf-cache`.
+Au premier démarrage, l'API télécharge CLIP (~600 Mo) dans le volume `hf-cache`. La tête est
+montée depuis `models/probes/` (format `.npz` sans pickle). En local : `uv sync --group ml` et
+`DOCROUTER_CLASSIFIER=probe`. L'ancien modèle reste disponible avec `DOCROUTER_CLASSIFIER=dit`.
 
 ## Générer les documents de test (fictifs)
 

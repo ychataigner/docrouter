@@ -1,12 +1,18 @@
 """Classifieurs de documents.
 
-L'API ne dépend que de l'interface `DocumentClassifier` : remplacer DiT par le modèle fine-tuné
-(itération 2) puis par sa version ONNX (itération 4) ne touche ni aux routes ni au front.
+L'API ne dépend que de l'interface `DocumentClassifier` : passer de DiT à la sonde CLIP, puis à
+sa version ONNX (itération 4), ne touche ni aux routes ni au front.
+
+- `probe` : réseau de vision gelé + tête linéaire à 4 classes entraînée sur nos documents
+  (choisi sur mesures : 97,5 % sur le jeu de test, voir docs/iterations.md) ;
+- `dit` : DiT pré-entraîné sur RVL-CDIP, sans adaptation (35 %) ;
+- `dummy` : tri simulé, sans IA, pour développer le front.
 """
 
 import hashlib
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
 from docrouter_core import DocumentType
@@ -72,6 +78,78 @@ class DiTClassifier:
         )
 
 
+class ImageEmbedder:
+    """Réseau de vision gelé : une image → un vecteur qui résume le document.
+
+    Utilisé à l'identique par l'entraînement de la tête (`training/`) et par l'API : les vecteurs
+    vus en production sont calculés exactement comme ceux de l'entraînement.
+    """
+
+    def __init__(self, kind: str, model_id: str) -> None:
+        import torch
+        from transformers import AutoImageProcessor, AutoModel, CLIPVisionModelWithProjection
+
+        self.kind, self.model_id, self._torch = kind, model_id, torch
+        self.processor = AutoImageProcessor.from_pretrained(model_id)
+        if kind == "clip":
+            # Seule la partie « image » de CLIP est chargée (pas l'encodeur de texte).
+            self.model = CLIPVisionModelWithProjection.from_pretrained(model_id).eval()
+        elif kind in ("vit", "dit"):
+            self.model = AutoModel.from_pretrained(model_id).eval()
+        else:
+            raise ValueError(f"Type d'extracteur inconnu : {kind}")
+
+    def embed(self, images: list[Image.Image]):
+        """Renvoie un tableau numpy (n_images, dim)."""
+        with self._torch.inference_mode():
+            inputs = self.processor(images=images, return_tensors="pt")
+            out = self.model(**inputs)
+            if self.kind == "clip":
+                feats = out.image_embeds
+            elif self.kind == "vit":
+                feats = out.last_hidden_state[:, 0]  # jeton [CLS]
+            else:  # dit : moyenne des patchs (pooler de BEiT)
+                pooled = out.pooler_output
+                feats = pooled if pooled is not None else out.last_hidden_state[:, 1:].mean(1)
+        return feats.float().numpy()
+
+
+def resolve_head(spec: str) -> Path:
+    """Fichier local, ou `hf://<compte>/<dépôt>/<fichier>` téléchargé depuis le Hub (HF_TOKEN)."""
+    if spec.startswith("hf://"):
+        from huggingface_hub import hf_hub_download
+
+        owner, repo, filename = spec.removeprefix("hf://").split("/", 2)
+        return Path(hf_hub_download(f"{owner}/{repo}", filename))
+    path = Path(spec)
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Tête de classification introuvable : {spec} "
+            "(la produire avec `uv run docrouter-evaluate --model probe-clip`)."
+        )
+    return path
+
+
+class ProbeClassifier:
+    """Réseau gelé + tête linéaire à 4 classes (fichier `.npz`, voir `head.py`)."""
+
+    def __init__(self, head_spec: str) -> None:
+        from docrouter_api.head import LinearHead
+
+        head = LinearHead.load(resolve_head(head_spec))
+        logger.info("Chargement de la sonde %s sur %s", head.kind, head.backbone)
+        self._head = head
+        self._classes = [DocumentType(c) for c in head.classes]
+        self._embedder = ImageEmbedder(head.kind, head.backbone)
+        self.name = f"probe-{head.kind} ({head.backbone})"
+
+    def predict(self, image: Image.Image) -> Prediction:
+        probs = self._head.probabilities(self._embedder.embed([image]))[0]
+        scores = {c: float(p) for c, p in zip(self._classes, probs, strict=True)}
+        best = max(scores, key=scores.__getitem__)
+        return Prediction(scores=scores, raw_label=best.value)
+
+
 class DummyClassifier:
     """Classifieur simulé, sans IA : pour développer et tester le front.
 
@@ -97,10 +175,12 @@ class DummyClassifier:
         return Prediction(scores=scores, raw_label="simulation")
 
 
-def build_classifier(kind: str, model_id: str) -> DocumentClassifier:
+def build_classifier(kind: str, model_id: str, probe_head: str = "") -> DocumentClassifier:
     if kind == "dummy":
         return DummyClassifier()
     try:
+        if kind == "probe":
+            return ProbeClassifier(probe_head)
         return DiTClassifier(model_id)
     except ImportError as exc:
         raise RuntimeError(

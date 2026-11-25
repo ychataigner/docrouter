@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Protocol
 
 import numpy as np
+from docrouter_api.classifier import ImageEmbedder
+from docrouter_api.head import LinearHead
 from docrouter_core import DocumentType
 from PIL import Image
 
@@ -152,38 +154,18 @@ def _as_tensor(output):
 # --- Sondes linéaires -----------------------------------------------------------------------
 
 
-class FeatureExtractor:
-    """Réseau gelé → un vecteur par image (le « résumé » que le réseau fait du document)."""
-
-    def __init__(self, kind: str, model_id: str) -> None:
-        import torch
-        from transformers import AutoImageProcessor, AutoModel, CLIPModel, CLIPProcessor
-
-        self.kind, self.model_id, self._torch = kind, model_id, torch
-        if kind == "clip":
-            self._model = CLIPModel.from_pretrained(model_id).vision_model.eval()
-            self._proj = CLIPModel.from_pretrained(model_id).visual_projection.eval()
-            self._processor = CLIPProcessor.from_pretrained(model_id).image_processor
-        else:
-            self._model = AutoModel.from_pretrained(model_id).eval()
-            self._proj = None
-            self._processor = AutoImageProcessor.from_pretrained(model_id)
-
-    def modules(self) -> list:
-        return [m for m in (self._model, self._proj) if m is not None]
-
-    def embed(self, images: list[Image.Image]) -> np.ndarray:
-        with self._torch.inference_mode():
-            inputs = self._processor(images=images, return_tensors="pt")
-            out = self._model(**inputs)
-            if self.kind == "clip":
-                feats = self._proj(out.pooler_output)
-            elif self.kind == "vit":
-                feats = out.last_hidden_state[:, 0]  # jeton [CLS]
-            else:  # dit : moyenne des patchs (pooler de BEiT)
-                pooled = out.pooler_output
-                feats = pooled if pooled is not None else out.last_hidden_state[:, 1:].mean(1)
-        return feats.float().numpy()
+def head_from_sklearn(pipeline, kind: str, backbone: str) -> LinearHead:
+    """Convertit le pipeline scikit-learn (StandardScaler + LogisticRegression) en tête numpy."""
+    scaler, logreg = pipeline[0], pipeline[-1]
+    return LinearHead(
+        backbone=backbone,
+        kind=kind,
+        classes=[CLASSES[i].value for i in logreg.classes_],
+        mean=scaler.mean_.astype(np.float32),
+        scale=scaler.scale_.astype(np.float32),
+        coef=logreg.coef_.astype(np.float32),
+        intercept=logreg.intercept_.astype(np.float32),
+    )
 
 
 class LinearProbe:
@@ -198,8 +180,8 @@ class LinearProbe:
     ) -> None:
         self.name, self.kind, self.model_id = name, kind, model_id
         self.cache_dir, self.save_dir, self.batch_size = cache_dir, save_dir, batch_size
-        self._extractor = FeatureExtractor(kind, model_id)
-        self._clf = None
+        self._extractor = ImageEmbedder(kind, model_id)
+        self._head: LinearHead | None = None
         self._chosen_c: float | None = None
         self.saved_path: Path | None = None
 
@@ -211,7 +193,7 @@ class LinearProbe:
         }
 
     def size(self) -> dict[str, float]:
-        return _size_of(*self._extractor.modules())
+        return _size_of(self._extractor.model)
 
     def _features(self, samples: Sequence[Sample], split: str) -> np.ndarray:
         cache = self.cache_dir / f"{self.name}_{split}.npy" if self.cache_dir else None
@@ -251,22 +233,13 @@ class LinearProbe:
             if best is None or score > best[0]:
                 best = (score, c, clf)
         fit_s = time.perf_counter() - t0
-        val_accuracy, self._chosen_c, self._clf = best
+        val_accuracy, self._chosen_c, pipeline = best
+        # La tête est exportée en numpy et c'est elle qui prédit, ici comme dans l'API.
+        self._head = head_from_sklearn(pipeline, self.kind, self.model_id)
 
         if self.save_dir:
-            import joblib
-
-            self.save_dir.mkdir(parents=True, exist_ok=True)
-            self.saved_path = self.save_dir / f"{self.name}.joblib"
-            joblib.dump(
-                {
-                    "backbone": self.model_id,
-                    "kind": self.kind,
-                    "classes": [c.value for c in CLASSES],
-                    "head": self._clf,
-                },
-                self.saved_path,
-            )
+            self.saved_path = self.save_dir / f"{self.name}.npz"
+            self._head.save(self.saved_path)
         return {
             "val_accuracy": val_accuracy,
             "feature_extraction_s": extract_s,
@@ -274,8 +247,8 @@ class LinearProbe:
         }
 
     def predict(self, image: Image.Image) -> Scores:
-        probs = self._clf.predict_proba(self._extractor.embed([image]))[0]
-        return dict(zip(CLASSES, (float(p) for p in probs), strict=True))
+        probs = self._head.probabilities(self._extractor.embed([image]))[0]
+        return {DocumentType(c): float(p) for c, p in zip(self._head.classes, probs, strict=True)}
 
 
 def make_backend(name: str, cache_dir: Path | None, save_dir: Path | None) -> Backend:

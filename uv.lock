@@ -423,6 +423,8 @@ dependencies = [
 
 [package.optional-dependencies]
 ml = [
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "torch", version = "2.15.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
     { name = "torch", version = "2.15.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
     { name = "transformers" },
@@ -432,6 +434,7 @@ ml = [
 requires-dist = [
     { name = "docrouter-core", editable = "packages/core" },
     { name = "fastapi", specifier = ">=0.115" },
+    { name = "numpy", marker = "extra == 'ml'", specifier = ">=1.26" },
     { name = "pillow", specifier = ">=11.0" },
     { name = "pydantic-settings", specifier = ">=2.6" },
     { name = "pypdfium2", specifier = ">=4.30" },

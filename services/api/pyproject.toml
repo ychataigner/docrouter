@@ -14,10 +14,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Tri par IA (DiT). Sans cet extra, l'API tourne avec le classifieur simulé (`dummy`).
+# Tri par IA (sonde CLIP ou DiT). Sans cet extra, l'API tourne avec le classifieur simulé.
 ml = [
     "transformers>=4.46",
     "torch>=2.5",
+    "numpy>=1.26",
 ]
 
 [tool.uv.sources]
