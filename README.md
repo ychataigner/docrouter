@@ -8,6 +8,21 @@ dans le bon dossier. Spécifications complètes : [SPECIFICATIONS.md](SPECIFICAT
 > test, voir [docs/iterations.md](docs/iterations.md)). Sans la surcouche IA, l'API utilise un
 > **tri simulé** (`dummy`) pour développer le front.
 
+## Résultats clés
+
+| | Valeur | Détails |
+|---|---|---|
+| Modèle | Sonde linéaire sur CLIP, exécutée en ONNX INT8 | 5 modèles comparés dans MLflow |
+| Précision (jeu de test, mise en page jamais vue) | **97,5 %** (DiT pré-entraîné : 35 %) | [docs/iterations.md](docs/iterations.md) |
+| Temps de réponse | ≈ 90 ms par document (modèle : 54 ms) | itérations 4 et 5 |
+| Image Docker de l'API | **538 Mo** (PyTorch : 1,87 Go) | itération 4 |
+| Débit | 11,5 doc/s à 2 vCPU, 20,5 doc/s à 4 vCPU, 0 erreur | itération 5 |
+| Sécurité | Clé d'API par client, aucun document écrit sur disque | itération 6 |
+| Budget, 1 M documents / mois | **≈ 6 $/mois** pour l'API (≈ 34 $ avec front et MLflow) | [BUDGET.md](BUDGET.md) |
+
+Parcours itération par itération (choix, mesures, problèmes rencontrés) :
+[docs/iterations.md](docs/iterations.md). Spécifications : [SPECIFICATIONS.md](SPECIFICATIONS.md).
+
 ## Architecture
 
 | Service | Rôle | Port |
@@ -147,11 +162,25 @@ uv run ruff check . && uv run ruff format .     # lint / format
 ## Structure
 
 ```
-packages/core/   code partagé (types de documents, schémas)
-services/api/    API FastAPI + Dockerfile (extra `ml` = DiT + PyTorch)
-services/ui/     front Streamlit + Dockerfile
-training/        génération de données, entraînement, évaluation (hors images Docker)
-tests/           tests pytest
+packages/core/            code partagé (types de documents, règles de rangement, schémas)
+services/api/             API FastAPI + Dockerfile (extras : onnx = production, ml = PyTorch)
+services/ui/              front Streamlit + Dockerfile
+training/                 données, évaluation, export ONNX, rapport de charge, budget
+load_test/                scénario Locust (itération 5)
+tests/                    tests pytest (lancés par la CI GitHub Actions)
+docs/iterations.md        journal : choix, mesures et problèmes, itération par itération
+BUDGET.md                 estimation budgétaire (itération 9)
+docker-compose*.yml       base (API + front + MLflow), .ml (IA), .load (test de charge)
 ```
+
+Commandes du dossier `training/` (après `uv sync --group train`) :
+
+| Commande | Rôle |
+|---|---|
+| `docrouter-generate` | génère les documents fictifs et leur vérité terrain |
+| `docrouter-evaluate` | compare les modèles sur le jeu de test (MLflow) |
+| `docrouter-export-onnx` | exporte le réseau en ONNX et le quantifie en INT8 |
+| `docrouter-load-report` | analyse une campagne de charge Locust (MLflow) |
+| `docrouter-budget` | recalcule le budget à partir des mesures et des tarifs |
 
 Ajouter une dépendance à un service : `uv add --package docrouter-api <paquet>`.

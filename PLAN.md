@@ -143,9 +143,9 @@ L'ordre suit les itérations. Chaque phase se termine par un **tag Git** et une 
 - [ ] Tag `it7`
 
 ### Phase 8 — It. 9 : FinOps et documentation
-- [ ] `BUDGET.md` : 1 M docs/mois. Scénarios : CPU ONNX, modèle lourd, GPU, API HF à la requête,
-      avec et sans OCR (partie 2), à partir des **mesures réelles** de Locust et MLflow
-- [ ] README final (architecture, lancement, API, choix et résultats), `docs/iterations.md` complet
+- [x] `BUDGET.md` + `docrouter-budget` : 1 M docs/mois, 6 scénarios (Cloud Run à la requête ou
+      toujours prêt, VM, PyTorch, HF Endpoint, GPU) à partir des mesures réelles ; OCR en perspective
+- [x] README final (résultats clés, structure, commandes), `docs/iterations.md` complet
 - [ ] Tag `it9` = rendu
 
 ### Extension — Partie 2 (après le parcours obligatoire)

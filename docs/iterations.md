@@ -239,6 +239,40 @@ les mesures. Chaque itération terminée porte un tag Git (`git tag`).
 - **Tests** : 13 nouveaux (`tests/test_security.py`), 89 au total.
 - **Hors périmètre** : HTTPS. Il est assuré en production par un reverse proxy ou le service
   cloud, et l'itération 7 n'est pas réalisée (consigne).
-## Itération 7 — Le Grand Saut ⏳
+## Itération 7 — Le Grand Saut ⛔ (non réalisée, sur consigne)
+
+- Le déploiement cloud n'est pas demandé pour ce rendu (consigne de l'enseignant).
+- Ce qui le prépare déjà :
+  - image ONNX légère (538 Mo) qui démarre en 4 s ;
+  - configuration entièrement par variables d'environnement, secrets hors du dépôt ;
+  - conteneur en lecture seule ;
+  - support `hf://` pour télécharger les modèles depuis le Hub.
+- La comparaison CPU / GPU est chiffrée dans [`BUDGET.md`](../BUDGET.md) : le GPU est inutile
+  pour l'inférence (54 ms sur CPU).
 ## Itération 8 — Le Rétroviseur ⏳
-## Itération 9 — La Facture ⏳
+## Itération 9 — La Facture ✅
+
+- **Objectif** : estimer le coût cloud pour 1 million d'images par mois, finaliser la documentation.
+- **Réalisé** : [`BUDGET.md`](../BUDGET.md) et la commande `uv run docrouter-budget`. Le calcul part
+  de **nos mesures** (débit Locust, latence, démarrage à froid, taille d'image) et de tarifs
+  publics datés et sourcés. Il est reproductible et couvert par 8 tests.
+- **Résultat pour 1 M documents / mois** :
+
+| Scénario | Coût / mois |
+|---|---|
+| **Cloud Run à la requête, ONNX INT8 (recommandé)** | **≈ 6 $** |
+| Cloud Run, instance toujours prête | ≈ 105 $ |
+| 2 VM e2-standard-2 (haute dispo) | ≈ 114 $ |
+| Hugging Face Endpoint CPU | ≈ 44 $ |
+| GPU T4 dédié | ≈ 365 $ |
+
+  Avec le front et MLflow sur une petite VM : ≈ 34 $/mois, soit 0,03 $ pour 1 000 documents.
+- **Constats** :
+  - Le pic estimé (3,8 doc/s) n'occupe qu'un tiers d'un conteneur à 2 vCPU.
+  - Le démarrage en 4 s obtenu avec ONNX permet d'éteindre l'API sans trafic. Avec PyTorch
+    (24 s), il faudrait une instance permanente : facture × 19.
+  - Le GPU est inutile pour l'inférence.
+- **Documentation finalisée** : README (résultats clés, structure, commandes), journal complet,
+  section RGPD, budget.
+- **Limites** : projection à partir de mesures locales (pas de déploiement, itération 7 non
+  réalisée sur consigne) ; tarifs publics à revérifier ; facteur de pic supposé.
